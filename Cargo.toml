@@ -2,6 +2,8 @@
 name = "deputy"
 version = "0.1.0"
 edition = "2024"
+description = "Agentic CLI tool"
+license = "MIT"
 
 [dependencies]
 rig-core = { version = "0.13.0", features = ["all"] }
