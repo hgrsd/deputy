@@ -1,0 +1,8 @@
+[package]
+name = "deputy"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rig-core = { version = "0.13.0", features = ["all"] }
+tokio = { version = "1.46.0", features = ["full"] }
