@@ -1,11 +1,17 @@
 use std::io::{self, BufRead, Write};
 
+use rig::{
+    client::{CompletionClient, ProviderClient},
+    completion::{Chat, Prompt},
+    providers::anthropic,
+};
+
 mod tool;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let client = <rig::providers::anthropic::Client as rig::client::ProviderClient>::from_env();
-    let agent = rig::client::CompletionClient::agent(&client, rig::providers::anthropic::CLAUDE_3_7_SONNET)
+    let client = anthropic::Client::from_env();
+    let agent = client.agent("claude-sonnet-4-20250514")
         .preamble("You are an agentic code assistant called deputy. You will refer to yourself as the user's deputy. Use the tools available and your reasoning power to assist the user as best as you can.")
         .tool(tool::ListFilesTool)
         .tool(tool::ReadFilesTool)
@@ -24,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
         if line.trim().to_lowercase() == "exit" {
             break;
         }
-        let result = rig::completion::Chat::chat(&agent, line.clone(), history.clone()).await?;
+        let result = agent.prompt(line.clone()).multi_turn(50).await?;
         history.push(rig::message::Message::user(line));
         history.push(rig::message::Message::assistant(result.clone()));
         println!("{}\n", result);
