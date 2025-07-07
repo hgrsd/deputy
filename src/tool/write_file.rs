@@ -46,7 +46,6 @@ impl rig::tool::Tool for WriteFileTool {
     }
 
     async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        println!("tool call ({}) - {:?}", Self::NAME, args);
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
         std::fs::write(cwd.join(&args.path), args.content).map_err(|_| WriteFileError)?;
         Ok("File written successfully".to_owned())

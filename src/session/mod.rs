@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use indicatif::{ProgressBar, ProgressStyle};
 use rig::{
     OneOrMany,
     agent::Agent,
@@ -20,6 +23,19 @@ impl<T: CompletionModel, F: Fn(&str) -> ()> Session<T, F> {
         }
     }
 
+    fn create_spinner(&self, message: &str) -> ProgressBar {
+        let spinner = ProgressBar::new_spinner();
+        spinner.set_style(
+            ProgressStyle::default_spinner()
+                .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+                .template("{spinner:.blue} {msg}")
+                .unwrap(),
+        );
+        spinner.set_message(message.to_string());
+        spinner.enable_steady_tick(Duration::from_millis(100));
+        spinner
+    }
+
     pub async fn message(
         &mut self,
         prompt: impl Into<Message> + Send + Clone,
@@ -28,14 +44,23 @@ impl<T: CompletionModel, F: Fn(&str) -> ()> Session<T, F> {
         let mut tool_calls = Vec::new();
         let mut did_call_tool = false;
         let mut current_prompt: Message = prompt.clone().into();
+        let mut current_tool_call: Option<String> = None;
 
         loop {
+            let spin_message = if current_tool_call.is_some() {
+                format!("Working... ({})", current_tool_call.as_ref().unwrap(),)
+            } else {
+                "Working...".to_string()
+            };
+            let spinner = self.create_spinner(&spin_message);
+            spinner.enable_steady_tick(Duration::from_millis(100));
             let request = self
                 .agent
                 .completion(current_prompt.clone(), self.history.clone())
                 .await?
                 .build();
             let result = self.agent.model.completion(request).await?;
+            spinner.finish_and_clear();
 
             self.history.push(current_prompt.clone());
 
@@ -56,13 +81,15 @@ impl<T: CompletionModel, F: Fn(&str) -> ()> Session<T, F> {
                                 tool_call.function.arguments.to_string(),
                             )
                             .await?;
+
                         tool_results.push((tool_call.id.clone(), tool_result.clone()));
                         tool_calls.push(AssistantContent::tool_call(
                             tool_call.id.clone(),
-                            tool_call.function.name,
+                            tool_call.function.name.clone(),
                             tool_call.function.arguments,
                         ));
                         did_call_tool = true;
+                        current_tool_call = Some(tool_call.function.name);
                     }
                 }
             }

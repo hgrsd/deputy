@@ -56,7 +56,6 @@ impl rig::tool::Tool for ReadFilesTool {
     }
 
     async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        println!("tool call ({}) - {:?}", Self::NAME, args);
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
         let mut output = String::new();
         for path in args.paths {

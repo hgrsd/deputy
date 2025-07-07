@@ -39,7 +39,6 @@ impl rig::tool::Tool for ListFilesTool {
     }
 
     async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        println!("tool call ({}) - {:?}", Self::NAME, args);
         let mut output = String::new();
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
         let path = if args.path.is_empty() {
