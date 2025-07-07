@@ -2,11 +2,17 @@ use std::io::{self, BufRead, Write};
 
 use rig::{
     client::{CompletionClient, ProviderClient},
-    completion::{Chat, Prompt},
     providers::anthropic,
 };
 
+use crate::session::Session;
+
+mod session;
 mod tool;
+
+fn on_message(message: &str) {
+    println!("{}", message);
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
         .max_tokens(10_000)
         .build();
 
-    let mut history = Vec::new();
+    let mut session = Session::new(agent, on_message);
 
     let stdin = std::io::stdin();
     loop {
@@ -30,10 +36,7 @@ async fn main() -> anyhow::Result<()> {
         if line.trim().to_lowercase() == "exit" {
             break;
         }
-        let result = agent.prompt(line.clone()).multi_turn(50).await?;
-        history.push(rig::message::Message::user(line));
-        history.push(rig::message::Message::assistant(result.clone()));
-        println!("{}\n", result);
+        session.message(line).await?;
     }
 
     Ok(())
