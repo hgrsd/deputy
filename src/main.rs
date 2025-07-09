@@ -7,6 +7,7 @@ use rig::{
 
 use crate::session::Session;
 
+mod adapters;
 mod session;
 mod tool;
 
@@ -19,10 +20,10 @@ async fn main() -> anyhow::Result<()> {
     let client = anthropic::Client::from_env();
     let agent = client.agent("claude-sonnet-4-20250514")
         .preamble("You are an agentic code assistant called deputy. You will refer to yourself as the user's deputy. Use the tools available and your reasoning power to assist the user as best as you can.")
-        .tool(tool::ListFilesTool)
-        .tool(tool::ReadFilesTool)
-        .tool(tool::WriteFileTool)
-        .tool(tool::ExecCommandTool)
+        .tool(adapters::RigToolAdapter::new(tool::ListFilesTool))
+        .tool(adapters::RigToolAdapter::new(tool::ReadFilesTool))
+        .tool(adapters::RigToolAdapter::new(tool::WriteFileTool))
+        .tool(adapters::RigToolAdapter::new(tool::ExecCommandTool))
         .max_tokens(10_000)
         .build();
 

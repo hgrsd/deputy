@@ -1,7 +1,8 @@
-use anyhow::Result;
 use serde::Deserialize;
 use std::io::{self, Write};
 use std::process::Command;
+
+use crate::tool::tool::Tool;
 
 pub struct ExecCommandTool;
 
@@ -22,52 +23,49 @@ enum ExecCommandErrorKind {
 #[error("{0}")]
 pub struct ExecCommandError(#[from] ExecCommandErrorKind);
 
-impl rig::tool::Tool for ExecCommandTool {
+impl Tool for ExecCommandTool {
     const NAME: &'static str = "exec_command";
-
     type Error = ExecCommandError;
 
-    type Args = Input;
-
-    type Output = String;
-
-    async fn definition(&self, _prompt: String) -> rig::completion::ToolDefinition {
-        rig::completion::ToolDefinition {
-            name: Self::NAME.to_owned(),
-            description: "Execute a bash command in the current working directory.".to_owned(),
-            parameters: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "The bash command to execute."
-                    }
-                },
-                "required": ["command"]
-            }),
-        }
+    fn description(&self) -> String {
+        "Execute a bash command in the current working directory.".to_owned()
     }
 
-    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
-        println!("tool call ({}) - {:?}", Self::NAME, args);
+    fn input_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "The bash command to execute."
+                }
+            },
+            "required": ["command"]
+        })
+    }
+
+    async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
+        let input: Input = serde_json::from_value(args)?;
+        
+        println!("tool call (exec_command) - {:?}", input);
 
         print!(
             "Are you sure you want to execute this command: '{}' [y/N]? ",
-            args.command
+            input.command
         );
         io::stdout().flush().unwrap();
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
+        let mut user_input = String::new();
+        io::stdin().read_line(&mut user_input).unwrap();
 
-        let response = input.trim().to_lowercase();
+        let response = user_input.trim().to_lowercase();
         if response != "y" && response != "yes" {
-            return Err(ExecCommandError(ExecCommandErrorKind::CancelledByUser));
+            return Err(ExecCommandError(ExecCommandErrorKind::CancelledByUser).into());
         }
 
         let output = Command::new("sh")
             .arg("-c")
-            .arg(&args.command)
+            .arg(&input.command)
             .output()
             .map_err(|_| ExecCommandError(ExecCommandErrorKind::ExecutionError))?;
 

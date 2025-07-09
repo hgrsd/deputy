@@ -1,5 +1,6 @@
-use anyhow::Result;
 use serde::Deserialize;
+
+use crate::tool::tool::Tool;
 
 pub struct ListFilesTool;
 
@@ -12,39 +13,36 @@ pub struct Input {
 #[error("An error occurred while listing files")]
 pub struct ListFilesError;
 
-impl rig::tool::Tool for ListFilesTool {
+impl Tool for ListFilesTool {
     const NAME: &'static str = "list_files";
-
     type Error = ListFilesError;
 
-    type Args = Input;
-
-    type Output = String;
-
-    async fn definition(&self, _prompt: String) -> rig::completion::ToolDefinition {
-        rig::completion::ToolDefinition {
-            name: Self::NAME.to_owned(),
-            description: "List files in a directory. The directory must be a path relative to the the current working directory. If an empty path is provided, the current working directory will be used.".to_owned(),
-            parameters: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Path to the directory, relative to the current working directory. If an empty path is provided, the current working directory will be used."
-                    }
-                },
-                "required": ["path"]
-            }),
-        }
+    fn description(&self) -> String {
+        "List files in a directory. The directory must be a path relative to the the current working directory. If an empty path is provided, the current working directory will be used.".to_owned()
     }
 
-    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+    fn input_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to the directory, relative to the current working directory. If an empty path is provided, the current working directory will be used."
+                }
+            },
+            "required": ["path"]
+        })
+    }
+
+    async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
+        let input: Input = serde_json::from_value(args)?;
+        
         let mut output = String::new();
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
-        let path = if args.path.is_empty() {
+        let path = if input.path.is_empty() {
             cwd
         } else {
-            cwd.join(&args.path)
+            cwd.join(&input.path)
         };
 
         let entries = std::fs::read_dir(path).expect("Failed to read directory");
