@@ -9,13 +9,9 @@ pub struct Input {
     path: String,
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("An error occurred while listing files")]
-pub struct ListFilesError;
 
 impl Tool for ListFilesTool {
     const NAME: &'static str = "list_files";
-    type Error = ListFilesError;
 
     fn description(&self) -> String {
         "List files in a directory. The directory must be a path relative to the the current working directory. If an empty path is provided, the current working directory will be used.".to_owned()

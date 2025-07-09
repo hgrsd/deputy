@@ -10,13 +10,9 @@ pub struct Input {
     content: String,
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("An error occurred while writing the file")]
-pub struct WriteFileError;
 
 impl Tool for WriteFileTool {
     const NAME: &'static str = "write_file";
-    type Error = WriteFileError;
 
     fn description(&self) -> String {
         "Writes a file. The paths must be relative to the the current working directory. The file will be written with the provided content. This can be used to edit files by reading the file content first, and writing it back with the updated content.".to_owned()
@@ -43,7 +39,8 @@ impl Tool for WriteFileTool {
         let input: Input = serde_json::from_value(args)?;
         
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
-        std::fs::write(cwd.join(&input.path), input.content).map_err(|_| WriteFileError)?;
+        std::fs::write(cwd.join(&input.path), input.content)
+            .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
         Ok("File written successfully".to_owned())
     }
 }

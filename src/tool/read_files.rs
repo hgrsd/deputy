@@ -11,13 +11,9 @@ pub struct Input {
     offset: Option<usize>,
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("An error occurred while reading the files")]
-pub struct ReadFileError;
 
 impl Tool for ReadFilesTool {
     const NAME: &'static str = "read_files";
-    type Error = ReadFileError;
 
     fn description(&self) -> String {
         "Read files. The paths must be relative to the the current working directory. Each file will be read and returned as a string. Optionally, you can provide a limit and offset for the lines to be read. This is generally a good idea when you want to get a quick sense of what a file contains while preserving some space in your context.".to_owned()
