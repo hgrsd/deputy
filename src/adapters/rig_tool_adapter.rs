@@ -18,7 +18,7 @@ impl<T: Tool> RigToolAdapter<T> {
 pub struct RigToolAdapterError(#[from] anyhow::Error);
 
 impl<T: Tool + Send + Sync> rig::tool::Tool for RigToolAdapter<T> {
-    const NAME: &'static str = "adapter";
+    const NAME: &'static str = T::NAME;
 
     type Error = RigToolAdapterError;
     type Args = serde_json::Value;
