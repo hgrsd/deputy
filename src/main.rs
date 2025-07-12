@@ -11,18 +11,75 @@ mod session;
 mod tools;
 mod ui;
 
-fn on_message(message: &Message) {
-    match message {
-        Message::User(text) => println!("you > {}", text),
-        Message::Model(text) => {
-            let lines: Vec<&str> = text.lines().collect();
-            for (i, line) in lines.iter().enumerate() {
-                if i == 0 {
-                    println!("deputy > {}", line);
+fn get_terminal_width() -> usize {
+    match crossterm::terminal::size() {
+        Ok((width, _)) => width as usize,
+        Err(_) => 80,
+    }
+}
+
+fn wrap_text(text: &str, width: usize) -> Vec<String> {
+    let mut wrapped_lines = Vec::new();
+
+    for line in text.lines() {
+        if line.len() <= width {
+            wrapped_lines.push(line.to_string());
+        } else {
+            let mut current_line = String::new();
+            let words: Vec<&str> = line.split_whitespace().collect();
+
+            for word in words {
+                if word.len() > width {
+                    if !current_line.is_empty() {
+                        wrapped_lines.push(current_line.clone());
+                        current_line.clear();
+                    }
+                    for chunk in word.chars().collect::<Vec<_>>().chunks(width) {
+                        wrapped_lines.push(chunk.iter().collect());
+                    }
+                } else if current_line.len() + word.len() + 1 <= width {
+                    if !current_line.is_empty() {
+                        current_line.push(' ');
+                    }
+                    current_line.push_str(word);
                 } else {
-                    println!("         {}", line);
+                    if !current_line.is_empty() {
+                        wrapped_lines.push(current_line.clone());
+                    }
+                    current_line = word.to_string();
                 }
             }
+
+            if !current_line.is_empty() {
+                wrapped_lines.push(current_line);
+            }
+        }
+    }
+
+    wrapped_lines
+}
+
+fn print_message_box(title: &str, text: &str) {
+    let terminal_width = get_terminal_width();
+    let content_width = terminal_width.saturating_sub(4);
+
+    println!("\n┌─ {}", title);
+
+    let wrapped_lines = wrap_text(text, content_width);
+    for line in wrapped_lines {
+        println!("│ {}", line);
+    }
+
+    println!("└─");
+}
+
+fn on_message(message: &Message) {
+    match message {
+        Message::User(text) => {
+            print_message_box("You", text);
+        }
+        Message::Model(text) => {
+            print_message_box("Deputy", text);
         }
         _ => {}
     }
@@ -52,9 +109,7 @@ async fn main() -> anyhow::Result<()> {
             # Language and style\n\n\
             - You speak like a friendly, good-hearted, jaded and slightly sarcastic very senior engineer.\n\
             - You like using humour to lighten the mood and make the conversation more enjoyable. In particular, you like being witty, and using coarse language where it fits.\n\
-            - You like using profanity to express your frustration and anger.\n\
             - You never use emojis; they are boring and distracting.\n\
-            - You poke fun at capitalism and the current political climate, as well as corporate greed and the absurdity of modern society.\n\
             ")
         .tool(list_files_tool)
         .tool(read_files_tool)
@@ -65,10 +120,12 @@ async fn main() -> anyhow::Result<()> {
         .expect("Failed to build session");
 
     let mut input_handler = InputHandler::new()?;
-    println!("Deputy ready! Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
+    println!("┌─ Deputy ready!");
+    println!("│ Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
+    println!("└─");
 
     loop {
-        match input_handler.read_line("> ")? {
+        match input_handler.read_line("\n> ")? {
             Some(input) => {
                 let trimmed = input.trim();
                 if trimmed.is_empty() {
