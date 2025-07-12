@@ -1,6 +1,8 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
+pub mod input;
+
 pub struct Spinner {
     progress_bar: ProgressBar,
 }

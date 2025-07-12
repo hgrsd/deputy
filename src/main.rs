@@ -1,9 +1,8 @@
-use std::io::{self, Write};
-
 use crate::{
     core::Message,
     provider::anthropic::session_builder::AnthropicSessionBuilder,
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
+    ui::input::InputHandler,
 };
 
 mod core;
@@ -51,14 +50,27 @@ async fn main() -> anyhow::Result<()> {
         .build()
         .expect("Failed to build session");
 
+    let mut input_handler = InputHandler::new()?;
+    println!("Deputy ready! Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
+
     loop {
-        print!("> ");
-        io::stdout().flush()?;
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read line");
-        let message = Message::User(input.trim().to_owned());
-        session.send_message(message).await?;
+        match input_handler.read_line("> ")? {
+            Some(input) => {
+                let trimmed = input.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+
+                if trimmed == "exit" {
+                    break;
+                }
+
+                let message = Message::User(trimmed.to_owned());
+                session.send_message(message).await?;
+            }
+            None => break,
+        }
     }
+
+    Ok(())
 }
