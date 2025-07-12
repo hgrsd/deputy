@@ -3,18 +3,27 @@ use std::io::{self, Write};
 use crate::{
     model::Message,
     provider::anthropic::session_builder::AnthropicSessionBuilder,
-    tool::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
+    tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
 };
 
 mod model;
 mod provider;
 mod session;
-mod tool;
+mod tools;
 
 fn on_message(message: &Message) {
     match message {
-        Message::User(text) => println!("> {}", text),
-        Message::Model(text) => println!("deputy: {}", text),
+        Message::User(text) => println!("you > {}", text),
+        Message::Model(text) => {
+            let lines: Vec<&str> = text.lines().collect();
+            for (i, line) in lines.iter().enumerate() {
+                if i == 0 {
+                    println!("deputy > {}", line);
+                } else {
+                    println!("         {}", line);
+                }
+            }
+        }
         Message::ToolCall {
             id: _,
             tool_name,

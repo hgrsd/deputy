@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::tool::tool::Tool;
+use crate::tools::tool::Tool;
 
 pub struct ListFilesTool;
 
@@ -31,24 +31,28 @@ impl Tool for ListFilesTool {
         })
     }
 
-    fn call(&self, args: serde_json::Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>> {
+    fn call(
+        &self,
+        args: serde_json::Value,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>>
+    {
         Box::pin(async move {
-        let input: Input = serde_json::from_value(args)?;
+            let input: Input = serde_json::from_value(args)?;
 
-        let mut output = String::new();
-        let cwd = std::env::current_dir().expect("Failed to get current working directory");
-        let path = if input.path.is_empty() {
-            cwd
-        } else {
-            cwd.join(&input.path)
-        };
+            let mut output = String::new();
+            let cwd = std::env::current_dir().expect("Failed to get current working directory");
+            let path = if input.path.is_empty() {
+                cwd
+            } else {
+                cwd.join(&input.path)
+            };
 
-        let entries = std::fs::read_dir(path).expect("Failed to read directory");
-        for entry in entries {
-            let entry = entry.expect("Failed to read directory entry");
-            output.push_str(&format!("{}\n", entry.path().display()));
-        }
-        Ok(output)
+            let entries = std::fs::read_dir(path).expect("Failed to read directory");
+            for entry in entries {
+                let entry = entry.expect("Failed to read directory entry");
+                output.push_str(&format!("{}\n", entry.path().display()));
+            }
+            Ok(output)
         })
     }
 }

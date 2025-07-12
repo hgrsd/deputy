@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::tool::tool::Tool;
+use crate::tools::tool::Tool;
 
 pub struct WriteFileTool;
 
@@ -36,7 +36,11 @@ impl Tool for WriteFileTool {
         })
     }
 
-    fn call(&self, args: serde_json::Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>> {
+    fn call(
+        &self,
+        args: serde_json::Value,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>>
+    {
         Box::pin(async move {
             let input: Input = serde_json::from_value(args)?;
 

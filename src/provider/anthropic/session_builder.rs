@@ -4,7 +4,7 @@ use crate::{
     model::Message,
     provider::anthropic::{anthropic_model::AnthropicModel, types::Tool as AnthropicTool},
     session::Session,
-    tool::Tool,
+    tools::Tool,
 };
 
 pub struct AnthropicSessionBuilder<F: Fn(&Message)> {

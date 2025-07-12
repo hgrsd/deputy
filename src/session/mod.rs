@@ -1,8 +1,8 @@
-use std::{collections::HashMap, thread::current};
+use std::collections::HashMap;
 
 use crate::{
     model::{Message, Model},
-    tool::Tool,
+    tools::Tool,
 };
 
 pub struct Session<M: Model, F: Fn(&Message)> {
