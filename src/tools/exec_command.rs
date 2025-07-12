@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::io::{self, Write};
 use std::process::Command;
 
-use crate::tools::tool::Tool;
+use crate::core::Tool;
 
 pub struct ExecCommandTool;
 

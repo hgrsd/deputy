@@ -1,16 +1,16 @@
 use std::io::{self, Write};
 
 use crate::{
-    model::Message,
+    core::Message,
     provider::anthropic::session_builder::AnthropicSessionBuilder,
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
 };
 
-mod model;
+mod core;
 mod provider;
 mod session;
-mod spinner;
 mod tools;
+mod ui;
 
 fn on_message(message: &Message) {
     match message {

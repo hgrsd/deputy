@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::tools::tool::Tool;
+use crate::core::Tool;
 
 pub struct ListFilesTool;
 

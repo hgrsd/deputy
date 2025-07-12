@@ -1,5 +1,5 @@
 use crate::{
-    model::{Message, Model, ModelError},
+    core::{Message, Model, ModelError},
     provider::anthropic::types::{
         ContentBlock, CreateMessageRequest, CreateMessageResponse, ErrorResponse,
         Message as AnthropicMessage, Tool,

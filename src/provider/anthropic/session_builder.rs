@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    model::Message,
+    core::{Message, Tool},
     provider::anthropic::{anthropic_model::AnthropicModel, types::Tool as AnthropicTool},
     session::Session,
-    tools::Tool,
 };
 
 pub struct AnthropicSessionBuilder<F: Fn(&Message)> {

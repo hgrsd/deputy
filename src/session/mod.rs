@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    model::{Message, Model},
-    spinner::Spinner,
-    tools::Tool,
+    core::{Message, Model, Tool},
+    ui::Spinner,
 };
 
 pub struct Session<M: Model, F: Fn(&Message)> {
