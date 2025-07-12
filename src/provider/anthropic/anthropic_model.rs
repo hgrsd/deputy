@@ -1,8 +1,10 @@
-use crate::provider::anthropic::types::{
-    ApiError, ContentBlock, CreateMessageRequest, CreateMessageResponse,
-    Message as AnthropicMessage, Tool,
+use crate::{
+    model::{Message, Model, ModelError},
+    provider::anthropic::types::{
+        ContentBlock, CreateMessageRequest, CreateMessageResponse, ErrorResponse,
+        Message as AnthropicMessage, Tool,
+    },
 };
-use crate::provider::model::{Message, Model, ModelError};
 
 pub struct AnthropicModel {
     api_key: String,
@@ -67,7 +69,7 @@ impl From<Message> for AnthropicMessage {
                 content: vec![ContentBlock::ToolResult {
                     tool_use_id: id.expect("all tool results are expected to have an id"),
                     content: output,
-                    is_error: if is_error { Some(true) } else { None },
+                    is_error: if is_error { Some(true) } else { Some(false) },
                 }],
                 role: crate::provider::anthropic::types::Role::User,
             },
@@ -120,10 +122,10 @@ impl Model for AnthropicModel {
 
         if !result.status().is_success() {
             let error = result
-                .json::<ApiError>()
+                .json::<ErrorResponse>()
                 .await
                 .map_err(|_| ModelError::ApiError("Unknown API error occurred".to_owned()))?;
-            return Err(ModelError::ApiError(error.message));
+            return Err(ModelError::ApiError(error.error.message));
         }
 
         let body = result

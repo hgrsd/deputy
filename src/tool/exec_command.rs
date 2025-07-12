@@ -12,7 +12,9 @@ pub struct Input {
 }
 
 impl Tool for ExecCommandTool {
-    const NAME: &'static str = "exec_command";
+    fn name(&self) -> String {
+        "exec_command".to_owned()
+    }
 
     fn description(&self) -> String {
         "Execute a bash command in the current working directory.".to_owned()
@@ -33,7 +35,7 @@ impl Tool for ExecCommandTool {
 
     async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
         let input: Input = serde_json::from_value(args)?;
-        
+
         println!("tool call (exec_command) - {:?}", input);
 
         print!(

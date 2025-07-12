@@ -11,9 +11,10 @@ pub struct Input {
     offset: Option<usize>,
 }
 
-
 impl Tool for ReadFilesTool {
-    const NAME: &'static str = "read_files";
+    fn name(&self) -> String {
+        "read_files".to_owned()
+    }
 
     fn description(&self) -> String {
         "Read files. The paths must be relative to the the current working directory. Each file will be read and returned as a string. Optionally, you can provide a limit and offset for the lines to be read. This is generally a good idea when you want to get a quick sense of what a file contains while preserving some space in your context.".to_owned()
@@ -47,7 +48,7 @@ impl Tool for ReadFilesTool {
 
     async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
         let input: Input = serde_json::from_value(args)?;
-        
+
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
         let mut output = String::new();
         for path in input.paths {

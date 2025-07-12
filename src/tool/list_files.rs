@@ -9,9 +9,10 @@ pub struct Input {
     path: String,
 }
 
-
 impl Tool for ListFilesTool {
-    const NAME: &'static str = "list_files";
+    fn name(&self) -> String {
+        "list_files_tool".to_owned()
+    }
 
     fn description(&self) -> String {
         "List files in a directory. The directory must be a path relative to the the current working directory. If an empty path is provided, the current working directory will be used.".to_owned()
@@ -32,7 +33,7 @@ impl Tool for ListFilesTool {
 
     async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
         let input: Input = serde_json::from_value(args)?;
-        
+
         let mut output = String::new();
         let cwd = std::env::current_dir().expect("Failed to get current working directory");
         let path = if input.path.is_empty() {
