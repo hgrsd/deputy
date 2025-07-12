@@ -9,6 +9,7 @@ use crate::{
 mod model;
 mod provider;
 mod session;
+mod spinner;
 mod tools;
 
 fn on_message(message: &Message) {
@@ -24,20 +25,7 @@ fn on_message(message: &Message) {
                 }
             }
         }
-        Message::ToolCall {
-            id: _,
-            tool_name,
-            arguments: _,
-        } => println!("tool use: {}", tool_name),
-        Message::ToolResult {
-            id,
-            output: _,
-            is_error,
-        } => println!(
-            "tool result for {}, error: {:?}",
-            id.clone().expect("id must be present"),
-            is_error
-        ),
+        _ => {}
     }
 }
 

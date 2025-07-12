@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     model::{Message, Model},
+    spinner::Spinner,
     tools::Tool,
 };
 
@@ -24,13 +25,23 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
 
     pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
         let mut current_message = message.clone();
+        let mut spinner: Option<Spinner> = None;
+
         loop {
             let mut turn_finished = true;
+
+            if spinner.is_none() {
+                spinner = Some(Spinner::new("Thinking..."));
+            }
 
             let response = self
                 .model
                 .send_message(current_message.clone(), self.message_history.clone())
                 .await?;
+
+            if let Some(s) = spinner.take() {
+                s.finish();
+            }
 
             self.message_history.push(current_message.clone());
 
@@ -44,6 +55,7 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
                 } = m
                 {
                     turn_finished = false;
+
                     let tool = self
                         .tools
                         .get(&tool_name)
@@ -60,6 +72,7 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
                             is_error: true,
                         },
                     };
+                    spinner = Some(Spinner::new(&format!("Executing {}...", tool_name)));
                     current_message = result;
                 }
             }
@@ -67,6 +80,10 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
             if turn_finished {
                 break;
             }
+        }
+
+        if let Some(s) = spinner.take() {
+            s.finish();
         }
 
         Ok(())
