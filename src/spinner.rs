@@ -20,16 +20,8 @@ impl Spinner {
         Self { progress_bar }
     }
     
-    pub fn set_message(&self, message: &str) {
-        self.progress_bar.set_message(message.to_string());
-    }
-    
     pub fn finish(&self) {
         self.progress_bar.finish_and_clear();
-    }
-    
-    pub fn finish_with_message(&self, message: &str) {
-        self.progress_bar.finish_with_message(message.to_string());
     }
 }
 
