@@ -25,11 +25,12 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
     pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
         let mut current_message = message.clone();
         let mut spinner: Option<Spinner> = None;
+        let debug_mode = std::env::var("DEPUTY_DEBUG").unwrap_or_default() == "true";
 
         loop {
             let mut turn_finished = true;
 
-            if spinner.is_none() {
+            if spinner.is_none() && !debug_mode {
                 spinner = Some(Spinner::new("Thinking..."));
             }
 
@@ -59,19 +60,36 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
                         .tools
                         .get(&tool_name)
                         .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
+                    
+                    if debug_mode {
+                        eprintln!("[DEBUG] Tool call: {} with arguments: {}", tool_name, arguments);
+                    }
+                    
                     let result = match tool.call(arguments).await {
-                        Ok(output) => Message::ToolResult {
-                            id,
-                            output,
-                            is_error: false,
+                        Ok(output) => {
+                            if debug_mode {
+                                eprintln!("[DEBUG] Tool result (success): {}", output);
+                            }
+                            Message::ToolResult {
+                                id,
+                                output,
+                                is_error: false,
+                            }
                         },
-                        Err(error) => Message::ToolResult {
-                            id,
-                            output: error.to_string(),
-                            is_error: true,
+                        Err(error) => {
+                            if debug_mode {
+                                eprintln!("[DEBUG] Tool result (error): {}", error);
+                            }
+                            Message::ToolResult {
+                                id,
+                                output: error.to_string(),
+                                is_error: true,
+                            }
                         },
                     };
-                    spinner = Some(Spinner::new(&format!("Executing {}...", tool_name)));
+                    if !debug_mode {
+                        spinner = Some(Spinner::new(&format!("Executing {}...", tool_name)));
+                    }
                     current_message = result;
                 }
             }
