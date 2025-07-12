@@ -1,15 +1,3 @@
-pub struct ToolCallContent {
-    pub id: std::option::Option<String>,
-    pub tool_name: String,
-    pub arguments: serde_json::Value,
-}
-
-pub struct ToolCallResult {
-    pub id: std::option::Option<String>,
-    pub output: String,
-    pub is_error: bool,
-}
-
 #[derive(Clone, Debug)]
 pub enum Message {
     User(String),

@@ -1,13 +1,9 @@
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use crate::{
-    model::{Message, Model},
-    provider::anthropic::{anthropic_model::AnthropicModel, types::Tool as AnthropicTool},
-    session::Session,
-    tool::{ListFilesTool, Tool},
+    model::Message,
+    provider::anthropic::session_builder::AnthropicSessionBuilder,
+    tool::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
 };
 
 mod model;
@@ -39,20 +35,24 @@ fn on_message(message: &Message) {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").expect("ANTHROPIC_API_KEY must be set");
-    let list_files_tool = ListFilesTool {};
-    let list_files = AnthropicTool {
-        name: list_files_tool.name(),
-        description: list_files_tool.description(),
-        input_schema: list_files_tool.input_schema(),
-    };
-    let client = AnthropicModel::new(
-        anthropic_key, "claude-sonnet-4-20250514".to_owned(),
-        10_000,
-        Some("You are an agentic code assistant called deputy. You will refer to yourself as the user's deputy. Use the tools available and your reasoning power to assist the user as best as you can.".to_owned()),
-        Some(vec![list_files])
-    );
-    let tools = HashMap::from([(list_files_tool.name(), list_files_tool)]);
-    let mut session = Session::new(client, tools, on_message);
+
+    let list_files_tool = Box::new(ListFilesTool {});
+    let read_files_tool = Box::new(ReadFilesTool {});
+    let write_file_tool = Box::new(WriteFileTool {});
+    let exec_command_tool = Box::new(ExecCommandTool {});
+
+    let mut session = AnthropicSessionBuilder::new()
+        .api_key(&anthropic_key)
+        .max_tokens(10_000)
+        .model_name("claude-sonnet-4-20250514")
+        .system_prompt("You are an agentic code assistant called deputy. You will refer to yourself as the user's deputy. Use the tools available and your reasoning power to assist the user as best as you can.")
+        .tool(list_files_tool)
+        .tool(read_files_tool)
+        .tool(write_file_tool)
+        .tool(exec_command_tool)
+        .on_message(on_message)
+        .build()
+        .expect("Failed to build session");
 
     loop {
         print!("> ");

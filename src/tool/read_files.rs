@@ -46,24 +46,26 @@ impl Tool for ReadFilesTool {
         })
     }
 
-    async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
-        let input: Input = serde_json::from_value(args)?;
+    fn call(&self, args: serde_json::Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>> {
+        Box::pin(async move {
+            let input: Input = serde_json::from_value(args)?;
 
-        let cwd = std::env::current_dir().expect("Failed to get current working directory");
-        let mut output = String::new();
-        for path in input.paths {
-            let joined_path = cwd.join(&path);
-            let data = std::fs::read_to_string(&joined_path).expect("Failed to read file");
-            let lines = data.lines().collect::<Vec<_>>();
-            let limit = input.limit.unwrap_or(lines.len());
-            let offset = input.offset.unwrap_or(0);
-            let sampled_lines = &lines[offset..offset + limit.min(lines.len() - offset)];
-            output.push_str(&format!(
-                "path: {}\ndata: \n{}",
-                joined_path.display(),
-                sampled_lines.join("\n")
-            ));
-        }
-        Ok(output)
+            let cwd = std::env::current_dir().expect("Failed to get current working directory");
+            let mut output = String::new();
+            for path in input.paths {
+                let joined_path = cwd.join(&path);
+                let data = std::fs::read_to_string(&joined_path).expect("Failed to read file");
+                let lines = data.lines().collect::<Vec<_>>();
+                let limit = input.limit.unwrap_or(lines.len());
+                let offset = input.offset.unwrap_or(0);
+                let sampled_lines = &lines[offset..offset + limit.min(lines.len() - offset)];
+                output.push_str(&format!(
+                    "path: {}\ndata: \n{}",
+                    joined_path.display(),
+                    sampled_lines.join("\n")
+                ));
+            }
+            Ok(output)
+        })
     }
 }

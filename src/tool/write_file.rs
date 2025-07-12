@@ -36,12 +36,14 @@ impl Tool for WriteFileTool {
         })
     }
 
-    async fn call(&self, args: serde_json::Value) -> anyhow::Result<String> {
-        let input: Input = serde_json::from_value(args)?;
+    fn call(&self, args: serde_json::Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>> {
+        Box::pin(async move {
+            let input: Input = serde_json::from_value(args)?;
 
-        let cwd = std::env::current_dir().expect("Failed to get current working directory");
-        std::fs::write(cwd.join(&input.path), input.content)
-            .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
-        Ok("File written successfully".to_owned())
+            let cwd = std::env::current_dir().expect("Failed to get current working directory");
+            std::fs::write(cwd.join(&input.path), input.content)
+                .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
+            Ok("File written successfully".to_owned())
+        })
     }
 }

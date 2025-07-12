@@ -5,15 +5,15 @@ use crate::{
     tool::Tool,
 };
 
-pub struct Session<M: Model, T: Tool, F: Fn(&Message) -> ()> {
+pub struct Session<M: Model, F: Fn(&Message)> {
     model: M,
     message_history: Vec<Message>,
-    tools: HashMap<String, T>,
+    tools: HashMap<String, Box<dyn Tool>>,
     on_message: F,
 }
 
-impl<M: Model, T: Tool, F: Fn(&Message) -> ()> Session<M, T, F> {
-    pub fn new(model: M, tools: HashMap<String, T>, on_message: F) -> Self {
+impl<M: Model, F: Fn(&Message)> Session<M, F> {
+    pub fn new(model: M, tools: HashMap<String, Box<dyn Tool>>, on_message: F) -> Self {
         Self {
             model,
             message_history: Vec::new(),
@@ -63,7 +63,7 @@ impl<M: Model, T: Tool, F: Fn(&Message) -> ()> Session<M, T, F> {
                 }
             }
 
-            if (turn_finished) {
+            if turn_finished {
                 break;
             }
         }
