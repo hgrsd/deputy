@@ -26,9 +26,10 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
         let mut current_message = message.clone();
         let mut spinner: Option<Spinner> = None;
         let debug_mode = std::env::var("DEPUTY_DEBUG").unwrap_or_default() == "true";
+        let mut turn_finished = false;
 
-        loop {
-            let mut turn_finished = true;
+        while !turn_finished {
+            turn_finished = true;
 
             if spinner.is_none() && !debug_mode {
                 spinner = Some(Spinner::new("Thinking..."));
@@ -92,10 +93,6 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
                     }
                     current_message = result;
                 }
-            }
-
-            if turn_finished {
-                break;
             }
         }
 

@@ -20,19 +20,13 @@ impl InputHandler {
     pub fn read_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
         match self.editor.readline(prompt) {
             Ok(line) => {
-                // Add to history if it's not empty
                 if !line.trim().is_empty() {
                     self.editor.add_history_entry(line.as_str())?;
                 }
                 Ok(Some(line))
             }
-            Err(ReadlineError::Interrupted) => {
-                // Ctrl+C
-                println!("^C");
-                Ok(None)
-            }
+            Err(ReadlineError::Interrupted) => Ok(None),
             Err(ReadlineError::Eof) => {
-                // Ctrl+D
                 println!();
                 Err(anyhow::anyhow!("EOF"))
             }

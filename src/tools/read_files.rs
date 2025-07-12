@@ -17,7 +17,11 @@ impl Tool for ReadFilesTool {
     }
 
     fn description(&self) -> String {
-        "Read files. The paths must be relative to the the current working directory. Each file will be read and returned as a string. Optionally, you can provide a limit and offset for the lines to be read. This is generally a good idea when you want to get a quick sense of what a file contains while preserving some space in your context.".to_owned()
+        "Read files. The paths must be relative to the the current working directory.\
+         Each file will be read and returned as a string. Optionally, you can provide a limit and offset for the lines to be read.\
+         This is generally a good idea when you want to get a quick sense of what a file contains while preserving some space in your context.\n\
+         Never read a file without having first validated that the path exist; especially if the user has given you a filename in their message.\n\
+         ".to_owned()
     }
 
     fn input_schema(&self) -> serde_json::Value {
