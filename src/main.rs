@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut session = AnthropicSessionBuilder::new()
         .api_key(&anthropic_key)
-        .max_tokens(10_000)
+        .max_tokens(3_000)
         .model_name("claude-sonnet-4-20250514")
         .system_prompt("You are an agentic code assistant called deputy. You will refer to yourself as the user's deputy. Use the tools available and your reasoning power to assist the user as best as you can.")
         .tool(list_files_tool)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, thread::current};
 
 use crate::{
     model::{Message, Model},
@@ -23,24 +23,25 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
     }
 
     pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
+        let mut current_message = message.clone();
         loop {
             let mut turn_finished = true;
 
-            self.message_history.push(message.clone());
-
             let response = self
                 .model
-                .send_message(message.clone(), self.message_history.clone())
+                .send_message(current_message.clone(), self.message_history.clone())
                 .await?;
 
-            for message in response {
-                self.message_history.push(message.clone());
-                (self.on_message)(&message);
+            self.message_history.push(current_message.clone());
+
+            for m in response {
+                self.message_history.push(m.clone());
+                (self.on_message)(&m);
                 if let Message::ToolCall {
                     id,
                     tool_name,
                     arguments,
-                } = message
+                } = m
                 {
                     turn_finished = false;
                     let tool = self
@@ -59,7 +60,7 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
                             is_error: true,
                         },
                     };
-                    self.message_history.push(result);
+                    current_message = result;
                 }
             }
 
