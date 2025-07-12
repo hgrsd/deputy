@@ -11,6 +11,8 @@ pub struct Input {
     path: String,
     #[serde(default)]
     recursive: bool,
+    #[serde(default)]
+    include_hidden: bool,
 }
 
 impl Tool for ListFilesTool {
@@ -19,7 +21,7 @@ impl Tool for ListFilesTool {
     }
 
     fn description(&self) -> String {
-        "List files in a directory. The directory must be a path relative to the the current working directory. If an empty path is provided, the current working directory will be used. When recursive is true, recursively lists all files and directories in a tree format.".to_owned()
+        "List files in a directory. The directory must be a path relative to the the current working directory. If an empty path is provided, the current working directory will be used. When recursive is true, recursively lists all files and directories in a tree format. Hidden files (starting with '.') are excluded by default unless include_hidden is true. IMPORTANT: Only use include_hidden=true when you have a strong reason to examine hidden files, such as debugging configuration issues or when explicitly asked by the user.".to_owned()
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -33,6 +35,10 @@ impl Tool for ListFilesTool {
                 "recursive": {
                     "type": "boolean",
                     "description": "When true, recursively lists all files and directories in a tree format. Defaults to false."
+                },
+                "include_hidden": {
+                    "type": "boolean",
+                    "description": "When true, includes hidden files and directories (starting with '.'). Defaults to false. IMPORTANT: Only use this when you have a strong reason to examine hidden files, such as debugging configuration issues or when explicitly asked by the user."
                 }
             },
             "required": ["path"]
@@ -55,17 +61,22 @@ impl Tool for ListFilesTool {
             };
 
             let gitignore = build_gitignore(&path);
-            
+
             if input.recursive {
-                Ok(list_files_recursive(&path, 0, &gitignore))
+                Ok(list_files_recursive(
+                    &path,
+                    0,
+                    &gitignore,
+                    input.include_hidden,
+                ))
             } else {
                 let mut output = String::new();
                 let entries = std::fs::read_dir(&path).expect("Failed to read directory");
                 for entry in entries {
                     let entry = entry.expect("Failed to read directory entry");
                     let entry_path = entry.path();
-                    
-                    if should_include_path(&entry_path, &gitignore) {
+
+                    if should_include_path(&entry_path, &gitignore, input.include_hidden) {
                         output.push_str(&format!("{}\n", entry_path.display()));
                     }
                 }
@@ -75,32 +86,42 @@ impl Tool for ListFilesTool {
     }
 }
 
-fn list_files_recursive(path: &Path, depth: usize, gitignore: &ignore::gitignore::Gitignore) -> String {
+fn list_files_recursive(
+    path: &Path,
+    depth: usize,
+    gitignore: &ignore::gitignore::Gitignore,
+    include_hidden: bool,
+) -> String {
     let mut output = String::new();
     let indent = "  ".repeat(depth);
-    
+
     if let Ok(entries) = std::fs::read_dir(path) {
         let mut entries: Vec<_> = entries.collect();
         entries.sort_by(|a, b| {
             let a_path = a.as_ref().unwrap().path();
             let b_path = b.as_ref().unwrap().path();
-            
+
             match (a_path.is_dir(), b_path.is_dir()) {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
                 _ => a_path.file_name().cmp(&b_path.file_name()),
             }
         });
-        
+
         for entry in entries {
             if let Ok(entry) = entry {
                 let entry_path = entry.path();
                 let name = entry_path.file_name().unwrap().to_string_lossy();
-                
-                if should_include_path(&entry_path, gitignore) {
+
+                if should_include_path(&entry_path, gitignore, include_hidden) {
                     if entry_path.is_dir() {
                         output.push_str(&format!("{}{}/\n", indent, name));
-                        output.push_str(&list_files_recursive(&entry_path, depth + 1, gitignore));
+                        output.push_str(&list_files_recursive(
+                            &entry_path,
+                            depth + 1,
+                            gitignore,
+                            include_hidden,
+                        ));
                     } else {
                         output.push_str(&format!("{}{}\n", indent, name));
                     }
@@ -108,35 +129,52 @@ fn list_files_recursive(path: &Path, depth: usize, gitignore: &ignore::gitignore
             }
         }
     }
-    
+
     output
 }
 
 fn build_gitignore(path: &Path) -> ignore::gitignore::Gitignore {
     let mut builder = GitignoreBuilder::new(path);
-    
-    // Look for .gitignore files starting from the given path and walking up
+
     let mut current_path = path.to_path_buf();
     loop {
         let gitignore_path = current_path.join(".gitignore");
         if gitignore_path.exists() {
             if let Some(e) = builder.add(&gitignore_path) {
-                eprintln!("Warning: Failed to parse .gitignore at {}: {}", gitignore_path.display(), e);
+                eprintln!(
+                    "Warning: Failed to parse .gitignore at {}: {}",
+                    gitignore_path.display(),
+                    e
+                );
             }
         }
-        
+
         if !current_path.pop() {
             break;
         }
     }
-    
+
     builder.build().unwrap_or_else(|e| {
         eprintln!("Warning: Failed to build gitignore matcher: {}", e);
         GitignoreBuilder::new(path).build().unwrap()
     })
 }
 
-fn should_include_path(path: &Path, gitignore: &ignore::gitignore::Gitignore) -> bool {
+fn should_include_path(
+    path: &Path,
+    gitignore: &ignore::gitignore::Gitignore,
+    include_hidden: bool,
+) -> bool {
+    if !include_hidden {
+        if let Some(name) = path.file_name() {
+            if let Some(name_str) = name.to_str() {
+                if name_str.starts_with('.') {
+                    return false;
+                }
+            }
+        }
+    }
+
     match gitignore.matched(path, path.is_dir()) {
         ignore::Match::None | ignore::Match::Whitelist(_) => true,
         ignore::Match::Ignore(_) => false,
