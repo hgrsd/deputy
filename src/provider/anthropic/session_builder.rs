@@ -98,9 +98,3 @@ impl<F: Fn(&Message)> AnthropicSessionBuilder<F> {
         Ok(Session::new(anthropic_model, self.tools, on_message))
     }
 }
-
-impl<F: Fn(&Message)> Default for AnthropicSessionBuilder<F> {
-    fn default() -> Self {
-        Self::new()
-    }
-}

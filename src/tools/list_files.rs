@@ -77,7 +77,11 @@ impl Tool for ListFilesTool {
                     let entry_path = entry.path();
 
                     if should_include_path(&entry_path, &gitignore, input.include_hidden) {
-                        output.push_str(&format!("{}\n", entry_path.display()));
+                        if path.is_dir() {
+                            output.push_str(&format!("{} (directory)\n", entry_path.display()));
+                        } else {
+                            output.push_str(&format!("{}\n", entry_path.display()));
+                        }
                     }
                 }
                 Ok(output)
@@ -111,11 +115,14 @@ fn list_files_recursive(
         for entry in entries {
             if let Ok(entry) = entry {
                 let entry_path = entry.path();
-                let name = entry_path.file_name().unwrap().to_string_lossy();
 
                 if should_include_path(&entry_path, gitignore, include_hidden) {
                     if entry_path.is_dir() {
-                        output.push_str(&format!("{}{}/\n", indent, name));
+                        output.push_str(&format!(
+                            "{}{}/ (directory)\n",
+                            indent,
+                            entry_path.display()
+                        ));
                         output.push_str(&list_files_recursive(
                             &entry_path,
                             depth + 1,
@@ -123,7 +130,7 @@ fn list_files_recursive(
                             include_hidden,
                         ));
                     } else {
-                        output.push_str(&format!("{}{}\n", indent, name));
+                        output.push_str(&format!("{}{}\n", indent, entry_path.display()));
                     }
                 }
             }
