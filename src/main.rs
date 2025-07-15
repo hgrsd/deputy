@@ -4,12 +4,23 @@ use crate::{
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
     ui::input::InputHandler,
 };
+use clap::Parser;
 
 mod core;
 mod provider;
 mod session;
 mod tools;
 mod ui;
+
+#[derive(Parser)]
+#[command(name = "deputy")]
+#[command(about = "An agentic CLI assistant")]
+#[command(version)]
+struct Args {
+    /// Claude model to use
+    #[arg(short, long, default_value = "claude-sonnet-4-20250514")]
+    model: String,
+}
 
 fn get_terminal_width() -> usize {
     match crossterm::terminal::size() {
@@ -87,6 +98,7 @@ fn on_message(message: &Message) {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args = Args::parse();
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").expect("ANTHROPIC_API_KEY must be set");
 
     let list_files_tool = Box::new(ListFilesTool {});
@@ -97,7 +109,7 @@ async fn main() -> anyhow::Result<()> {
     let mut session = AnthropicSessionBuilder::new()
         .api_key(&anthropic_key)
         .max_tokens(3_000)
-        .model_name("claude-sonnet-4-20250514")
+        .model_name(&args.model)
         .system_prompt("You are an agentic code assistant called deputy.\n\
             You will refer to yourself as the user's deputy.\n\
             Use the tools available and your reasoning power to assist the user as best as you can.\n\
@@ -120,7 +132,7 @@ async fn main() -> anyhow::Result<()> {
         .expect("Failed to build session");
 
     let mut input_handler = InputHandler::new()?;
-    println!("┌─ Deputy ready!");
+    println!("┌─ Deputy ready! Using model: {}", args.model);
     println!("│ Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
     println!("└─");
 
