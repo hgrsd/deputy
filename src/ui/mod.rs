@@ -21,10 +21,10 @@ impl Spinner {
         );
         progress_bar.set_message(message.to_string());
         progress_bar.enable_steady_tick(Duration::from_millis(120));
-        
+
         Self { progress_bar }
     }
-    
+
     pub fn finish(&self) {
         self.progress_bar.finish_and_clear();
     }

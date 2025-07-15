@@ -1,11 +1,10 @@
-use rustyline::{Editor, error::ReadlineError};
-use std::path::PathBuf;
 use crossterm::{
-    cursor,
+    ExecutableCommand, cursor,
     terminal::{Clear, ClearType},
-    ExecutableCommand,
 };
-use std::io::{stdout, Write};
+use rustyline::{Editor, error::ReadlineError};
+use std::io::{Write, stdout};
+use std::path::PathBuf;
 
 pub struct InputHandler {
     editor: Editor<(), rustyline::history::FileHistory>,

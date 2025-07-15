@@ -1,9 +1,9 @@
 use crate::{
-    config::SYSTEM_PROMPT,
+    config::system_prompt,
     core::Message,
     provider::anthropic::session_builder::AnthropicSessionBuilder,
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
-    ui::{input::InputHandler, DisplayManager},
+    ui::{DisplayManager, input::InputHandler},
 };
 use clap::Parser;
 
@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY").expect("ANTHROPIC_API_KEY must be set");
 
     let display_manager = DisplayManager::new();
-    
+
     // Create a closure that captures the display manager
     let on_message = |message: &Message| {
         display_manager.handle_message(message);
@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         .api_key(&anthropic_key)
         .max_tokens(3_000)
         .model_name(&args.model)
-        .system_prompt(SYSTEM_PROMPT)
+        .system_prompt(&system_prompt())
         .tool(list_files_tool)
         .tool(read_files_tool)
         .tool(write_file_tool)
@@ -72,10 +72,10 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 let message = Message::User(trimmed.to_owned());
-                
+
                 // Display the user message first
                 display_manager.handle_message(&message);
-                
+
                 // Then send it to the session for processing
                 session.send_message(message).await?;
             }
