@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::io::{self, Write};
 use std::process::Command;
 
 use crate::core::Tool;
@@ -33,6 +32,19 @@ impl Tool for ExecCommandTool {
         })
     }
 
+    fn ask_permission(&self, args: serde_json::Value) {
+        let input: Input = serde_json::from_value(args).expect("unable to parse argument");
+        println!(
+            "deputy wants to execute the following command: {}",
+            &input.command
+        );
+    }
+
+    fn permission_id(&self, args: serde_json::Value) -> String {
+        let input: Input = serde_json::from_value(args).expect("unable to parse argument");
+        input.command.split_whitespace().take(1).collect()
+    }
+
     fn call(
         &self,
         args: serde_json::Value,
@@ -40,22 +52,6 @@ impl Tool for ExecCommandTool {
     {
         Box::pin(async move {
             let input: Input = serde_json::from_value(args)?;
-
-            println!("tool call (exec_command) - {:?}", input);
-
-            print!(
-                "Are you sure you want to execute this command: '{}' [y/N]? ",
-                input.command
-            );
-            io::stdout().flush().unwrap();
-
-            let mut user_input = String::new();
-            io::stdin().read_line(&mut user_input).unwrap();
-
-            let response = user_input.trim().to_lowercase();
-            if response != "y" && response != "yes" {
-                anyhow::bail!("Command execution was cancelled by the user");
-            }
 
             let output = Command::new("sh")
                 .arg("-c")

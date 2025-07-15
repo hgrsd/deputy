@@ -1,6 +1,6 @@
 use ignore::gitignore::GitignoreBuilder;
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::core::Tool;
 
@@ -13,6 +13,15 @@ pub struct Input {
     recursive: bool,
     #[serde(default)]
     include_hidden: bool,
+}
+
+fn build_path(input: &Input) -> PathBuf {
+    let cwd = std::env::current_dir().expect("Failed to get current working directory");
+    if input.path.is_empty() {
+        cwd
+    } else {
+        cwd.join(&input.path)
+    }
 }
 
 impl Tool for ListFilesTool {
@@ -45,6 +54,19 @@ impl Tool for ListFilesTool {
         })
     }
 
+    fn ask_permission(&self, args: serde_json::Value) {
+        let input: Input = serde_json::from_value(args).expect("unable to parse input");
+        let path = build_path(&input);
+        println!(
+            "list_files wants to read the files and directories in {}",
+            path.display()
+        );
+    }
+
+    fn permission_id(&self, _args: serde_json::Value) -> String {
+        String::from("list_files")
+    }
+
     fn call(
         &self,
         args: serde_json::Value,
@@ -53,13 +75,7 @@ impl Tool for ListFilesTool {
         Box::pin(async move {
             let input: Input = serde_json::from_value(args)?;
 
-            let cwd = std::env::current_dir().expect("Failed to get current working directory");
-            let path = if input.path.is_empty() {
-                cwd
-            } else {
-                cwd.join(&input.path)
-            };
-
+            let path = build_path(&input);
             let gitignore = build_gitignore(&path);
 
             if input.recursive {

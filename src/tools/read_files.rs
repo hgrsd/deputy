@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 
 use crate::core::Tool;
@@ -11,6 +13,11 @@ pub struct Input {
     offset: Option<usize>,
 }
 
+fn get_paths(input: &Input) -> Vec<PathBuf> {
+    let cwd = std::env::current_dir().expect("Failed to get current working directory");
+    input.paths.iter().map(|p| cwd.join(p)).collect()
+}
+
 impl Tool for ReadFilesTool {
     fn name(&self) -> String {
         "read_files".to_owned()
@@ -22,6 +29,24 @@ impl Tool for ReadFilesTool {
          This is generally a good idea when you want to get a quick sense of what a file contains while preserving some space in your context.\n\
          Never read a file without having first validated that the path exist; especially if the user has given you a filename in their message.\n\
          ".to_owned()
+    }
+
+    fn ask_permission(&self, args: serde_json::Value) {
+        let input: Input = serde_json::from_value(args).expect("unable to parse input");
+        let display_paths: Vec<String> = get_paths(&input)
+            .iter()
+            .map(|p| p.to_string_lossy())
+            .map(|s| s.to_string())
+            .collect();
+
+        println!(
+            "deputy wants to read the following files: [{}]",
+            display_paths.join(", ")
+        );
+    }
+
+    fn permission_id(&self, _args: serde_json::Value) -> String {
+        String::from("read_files")
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -58,18 +83,17 @@ impl Tool for ReadFilesTool {
         Box::pin(async move {
             let input: Input = serde_json::from_value(args)?;
 
-            let cwd = std::env::current_dir().expect("Failed to get current working directory");
+            let paths = get_paths(&input);
             let mut output = String::new();
-            for path in input.paths {
-                let joined_path = cwd.join(&path);
-                let data = std::fs::read_to_string(&joined_path).expect("Failed to read file");
+            for path in &paths {
+                let data = std::fs::read_to_string(path).expect("Failed to read file");
                 let lines = data.lines().collect::<Vec<_>>();
                 let limit = input.limit.unwrap_or(lines.len());
                 let offset = input.offset.unwrap_or(0);
                 let sampled_lines = &lines[offset..offset + limit.min(lines.len() - offset)];
                 output.push_str(&format!(
-                    "path: {}\ndata: \n{}",
-                    joined_path.display(),
+                    "<path>\n{}\n</path>\n<data>\n{}\n</data>\n",
+                    path.display(),
                     sampled_lines.join("\n")
                 ));
             }
