@@ -1,3 +1,7 @@
+use std::time::Duration;
+
+use reqwest::{Response, StatusCode};
+
 use crate::{
     core::{Message, Model, ModelError},
     provider::anthropic::types::{
@@ -35,6 +39,47 @@ impl AnthropicModel {
             system_prompt,
             tools,
         }
+    }
+
+    async fn post_with_retry(
+        &self,
+        api_url: &str,
+        request: &CreateMessageRequest,
+    ) -> Result<Response, ModelError> {
+        const MAX_RETRIES: u32 = 3;
+        const BASE_DELAY_SECS: u64 = 2;
+
+        for attempt in 0..=MAX_RETRIES {
+            let request = self
+                .client
+                .post(api_url)
+                .json(request)
+                .header("Content-Type", "application/json")
+                .header("anthropic-version", "2023-06-01")
+                .header("x-api-key", self.api_key.clone())
+                .build()
+                .map_err(|e| ModelError::RequestError(e.to_string()))?;
+
+            let response = self
+                .client
+                .execute(request)
+                .await
+                .map_err(|e| ModelError::ApiError(format!("{}", e)))?;
+
+            if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_RETRIES {
+                let delay_secs = BASE_DELAY_SECS * 2_u64.pow(attempt);
+                println!(
+                    "Anthropic API rate limit hit; retrying in {}s (attempt {}/{})",
+                    delay_secs,
+                    attempt + 1,
+                    MAX_RETRIES
+                );
+                tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+            } else {
+                return Ok(response);
+            }
+        }
+        unreachable!("Loop should have returned a response")
     }
 }
 
@@ -103,23 +148,7 @@ impl Model for AnthropicModel {
         };
 
         let api_url = format!("{}/messages", self.base_url);
-
-        let request = self
-            .client
-            .post(api_url)
-            .json(&request)
-            .header("Content-Type", "application/json")
-            .header("anthropic-version", "2023-06-01")
-            .header("x-api-key", self.api_key.clone())
-            .build()
-            .map_err(|e| ModelError::RequestError(e.to_string()))?;
-
-        let result = self
-            .client
-            .execute(request)
-            .await
-            .map_err(|e| ModelError::ApiError(format!("{}", e)))?;
-
+        let result = self.post_with_retry(&api_url, &request).await?;
         if !result.status().is_success() {
             let error = result
                 .json::<ErrorResponse>()
