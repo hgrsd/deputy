@@ -1,5 +1,11 @@
 use rustyline::{Editor, error::ReadlineError};
 use std::path::PathBuf;
+use crossterm::{
+    cursor,
+    terminal::{Clear, ClearType},
+    ExecutableCommand,
+};
+use std::io::{stdout, Write};
 
 pub struct InputHandler {
     editor: Editor<(), rustyline::history::FileHistory>,
@@ -23,6 +29,8 @@ impl InputHandler {
                 if !line.trim().is_empty() {
                     self.editor.add_history_entry(line.as_str())?;
                 }
+                // Clear the input line after user presses enter
+                self.clear_input_line()?;
                 Ok(Some(line))
             }
             Err(ReadlineError::Interrupted) => Ok(None),
@@ -32,6 +40,16 @@ impl InputHandler {
             }
             Err(err) => Err(anyhow::anyhow!("Error reading line: {}", err)),
         }
+    }
+
+    fn clear_input_line(&mut self) -> anyhow::Result<()> {
+        let mut stdout = stdout();
+        // Move cursor up one line and clear it
+        stdout.execute(cursor::MoveToPreviousLine(1))?;
+        stdout.execute(Clear(ClearType::CurrentLine))?;
+        stdout.execute(cursor::MoveToPreviousLine(1))?;
+        stdout.flush()?;
+        Ok(())
     }
 
     pub fn save_history(&mut self) -> anyhow::Result<()> {
