@@ -27,7 +27,8 @@ impl Tool for ReadFilesTool {
         "Read files. The paths must be relative to the the current working directory.\
          Each file will be read and returned as a string. Optionally, you can provide a limit and offset for the lines to be read.\
          This is generally a good idea when you want to get a quick sense of what a file contains while preserving some space in your context.\n\
-         Never read a file without having first validated that the path exist; especially if the user has given you a filename in their message.\n\
+         Never read a file without having first validated that the path exist; especially if the user has given you a filename in their message.\n\n\
+         Always prefer reading multiple files at once, rather than calling this tool multiple times, provided that you know which files you want to read. Doing so is more efficient.
          ".to_owned()
     }
 
