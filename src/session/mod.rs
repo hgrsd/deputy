@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{BufRead, Write},
-};
+use std::collections::HashMap;
 
 use crate::{
     core::{Message, Model, PermissionMode, Tool},
@@ -28,27 +25,30 @@ impl<'a, M: Model> Session<'a, M> {
     }
 
     fn prompt_for_permission(&mut self, tool_name: &str, permission_id: &str) -> bool {
-        print!(
-            "[1: allow, 2: always allow for {}, 3: deny] > ",
-            permission_id
-        );
-        std::io::stdout().flush().unwrap();
-        let mut response = String::new();
-        let stdin = std::io::stdin();
-        stdin.lock().read_line(&mut response).unwrap();
+        let response = self
+            .io
+            .get_user_input(&format!(
+                "[1: allow, 2: always allow for {}, 3: deny] > ",
+                permission_id,
+            ))
+            .expect("Failed to read user input");
 
-        match response.trim() {
-            "1" => true,
-            "2" => {
-                self.tool_permissions.insert(
-                    tool_name.to_string(),
-                    PermissionMode::ApprovedForId {
-                        command_id: permission_id.to_string(),
-                    },
-                );
-                true
+        if let Some(s) = response {
+            match s.as_str() {
+                "1" => true,
+                "2" => {
+                    self.tool_permissions.insert(
+                        tool_name.to_string(),
+                        PermissionMode::ApprovedForId {
+                            command_id: permission_id.to_string(),
+                        },
+                    );
+                    true
+                }
+                _ => false,
             }
-            _ => false,
+        } else {
+            false
         }
     }
 
@@ -56,14 +56,6 @@ impl<'a, M: Model> Session<'a, M> {
         match message {
             Message::User(text) => self.io.show_message("You", text),
             Message::Model(text) => self.io.show_message("Deputy", text),
-            Message::ToolCall {
-                id: _,
-                tool_name,
-                arguments: _,
-            } => self.io.show_message(
-                "Tool use",
-                &format!("Deputy is using the {} tool", tool_name),
-            ),
             _ => {}
         }
     }
