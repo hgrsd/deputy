@@ -1,6 +1,8 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::io::IO;
+
 pub trait Tool {
     fn name(&self) -> String;
     fn description(&self) -> String;
@@ -9,6 +11,6 @@ pub trait Tool {
         &self,
         args: serde_json::Value,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + '_>>;
-    fn ask_permission(&self, args: serde_json::Value);
+    fn ask_permission<'a>(&self, args: serde_json::Value, io: &'a mut Box<dyn IO>);
     fn permission_id(&self, args: serde_json::Value) -> String;
 }

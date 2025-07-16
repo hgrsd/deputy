@@ -126,7 +126,7 @@ impl<'a, M: Model> Session<'a, M> {
                         PermissionMode::Ask => {
                             {
                                 let tool = self.tools.get(&tool_name).unwrap();
-                                tool.ask_permission(arguments.clone());
+                                tool.ask_permission(arguments.clone(), self.io);
                             }
                             self.prompt_for_permission(&tool_name, &permission_id)
                         }
@@ -136,7 +136,7 @@ impl<'a, M: Model> Session<'a, M> {
                             } else {
                                 {
                                     let tool = self.tools.get(&tool_name).unwrap();
-                                    tool.ask_permission(arguments.clone());
+                                    tool.ask_permission(arguments.clone(), self.io);
                                 }
                                 self.prompt_for_permission(&tool_name, &permission_id)
                             }

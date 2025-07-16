@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::core::Tool;
+use crate::{core::Tool, io::IO};
 
 pub struct WriteFileTool;
 
@@ -95,12 +95,15 @@ impl Tool for WriteFileTool {
         })
     }
 
-    fn ask_permission(&self, args: serde_json::Value) {
+    fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
         let input: Input = serde_json::from_value(args).expect("unable to parse input");
         let path = get_path(&input);
-        println!(
-            "deputy wants to write or edit the file at {}",
-            path.display()
+        io.show_message(
+            "Permission request",
+            &format!(
+                "deputy wants to write or edit the file at {}",
+                path.display()
+            ),
         );
     }
 

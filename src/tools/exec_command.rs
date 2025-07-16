@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::process::Command;
 
-use crate::core::Tool;
+use crate::{core::Tool, io::IO};
 
 pub struct ExecCommandTool;
 
@@ -32,11 +32,14 @@ impl Tool for ExecCommandTool {
         })
     }
 
-    fn ask_permission(&self, args: serde_json::Value) {
+    fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
         let input: Input = serde_json::from_value(args).expect("unable to parse argument");
-        println!(
-            "deputy wants to execute the following command: {}",
-            &input.command
+        io.show_message(
+            "Permission Request",
+            &format!(
+                "deputy wants to execute the following command: {}",
+                &input.command
+            ),
         );
     }
 

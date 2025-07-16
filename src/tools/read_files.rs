@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::core::Tool;
+use crate::{core::Tool, io::IO};
 
 pub struct ReadFilesTool;
 
@@ -32,7 +32,7 @@ impl Tool for ReadFilesTool {
          ".to_owned()
     }
 
-    fn ask_permission(&self, args: serde_json::Value) {
+    fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
         let input: Input = serde_json::from_value(args).expect("unable to parse input");
         let display_paths: Vec<String> = get_paths(&input)
             .iter()
@@ -40,9 +40,12 @@ impl Tool for ReadFilesTool {
             .map(|s| s.to_string())
             .collect();
 
-        println!(
-            "deputy wants to read the following files: [{}]",
-            display_paths.join(", ")
+        io.show_message(
+            "Permission request",
+            &format!(
+                "deputy wants to read the following files: [{}]",
+                display_paths.join(", ")
+            ),
         );
     }
 

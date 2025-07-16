@@ -2,7 +2,7 @@ use ignore::gitignore::GitignoreBuilder;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
-use crate::core::Tool;
+use crate::{core::Tool, io::IO};
 
 pub struct ListFilesTool;
 
@@ -54,12 +54,15 @@ impl Tool for ListFilesTool {
         })
     }
 
-    fn ask_permission(&self, args: serde_json::Value) {
+    fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
         let input: Input = serde_json::from_value(args).expect("unable to parse input");
         let path = build_path(&input);
-        println!(
-            "list_files wants to read the files and directories in {}",
-            path.display()
+        io.show_message(
+            "Permission request",
+            &format!(
+                "list_files wants to read the files and directories in {}",
+                path.display()
+            ),
         );
     }
 

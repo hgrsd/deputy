@@ -45,7 +45,6 @@ impl InputHandler {
         // Move cursor up one line and clear it
         stdout.execute(cursor::MoveToPreviousLine(1))?;
         stdout.execute(Clear(ClearType::CurrentLine))?;
-        stdout.execute(cursor::MoveToPreviousLine(1))?;
         stdout.flush()?;
         Ok(())
     }
