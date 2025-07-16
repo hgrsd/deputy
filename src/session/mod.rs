@@ -3,10 +3,7 @@ use std::{
     io::{BufRead, Write},
 };
 
-use crate::{
-    core::{Message, Model, PermissionMode, Tool},
-    ui::Spinner,
-};
+use crate::core::{Message, Model, PermissionMode, Tool};
 
 pub struct Session<M: Model, F: Fn(&Message)> {
     model: M,
@@ -54,25 +51,16 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
 
     pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
         let mut current_message = message.clone();
-        let mut spinner: Option<Spinner> = None;
         let debug_mode = std::env::var("DEPUTY_DEBUG").unwrap_or_default() == "true";
         let mut turn_finished = false;
 
         while !turn_finished {
             turn_finished = true;
 
-            if spinner.is_none() && !debug_mode {
-                spinner = Some(Spinner::new("Thinking..."));
-            }
-
             let response = self
                 .model
                 .send_message(current_message.clone(), self.message_history.clone())
                 .await?;
-
-            if let Some(s) = spinner.take() {
-                s.finish();
-            }
 
             self.message_history.push(current_message.clone());
 
@@ -163,18 +151,10 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
                             }
                         }
                     };
-                    if !debug_mode {
-                        spinner = Some(Spinner::new(&format!("Executing {}...", tool_name)));
-                    }
                     current_message = result;
                 }
             }
         }
-
-        if let Some(s) = spinner.take() {
-            s.finish();
-        }
-
         Ok(())
     }
 }
