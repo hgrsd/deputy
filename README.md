@@ -8,7 +8,7 @@ A command-line AI assistant that acts as your coding deputy. Deputy integrates w
 - File system operations (read, write, list files)
 - Command execution capabilities
 - Contextual awareness of your project structure
-- Configurable Claude model selection
+- Configurable AI provider and model selection
 
 ## Installation
 
@@ -41,20 +41,26 @@ Simply run the binary and start chatting with your deputy:
 deputy
 ```
 
-You can also specify which Claude model to use:
+You can customize the AI provider and model:
 
 ```bash
+# Use a specific provider (currently only 'anthropic' is supported)
+deputy --provider anthropic
+
 # Use a specific model
 deputy --model claude-opus-4-20250514
 
-# Or use the short flag
-deputy -m claude-opus-4-20250514
+# Combine provider and model options
+deputy --provider anthropic --model claude-opus-4-20250514
+
+# Using short flags
+deputy -p anthropic -m claude-opus-4-20250514
 
 # See all available options
 deputy --help
 ```
 
-The default model is `claude-sonnet-4-20250514` if none is specified.
+The default provider is `anthropic` and the default model is `claude-sonnet-4-20250514` if none are specified.
 
 Type your commands or questions, and Deputy will assist you with code analysis, file operations, and project management tasks. Type `exit` to quit (or use Ctrl-C).
 
