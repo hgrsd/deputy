@@ -47,7 +47,7 @@ impl AnthropicModel {
         request: &CreateMessageRequest,
     ) -> Result<Response, ModelError> {
         const MAX_RETRIES: u32 = 3;
-        const BASE_DELAY_SECS: u64 = 2;
+        const BASE_DELAY_SECS: u64 = 6;
 
         for attempt in 0..=MAX_RETRIES {
             let request = self
@@ -69,7 +69,7 @@ impl AnthropicModel {
             if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_RETRIES {
                 let delay_secs = BASE_DELAY_SECS * 2_u64.pow(attempt);
                 println!(
-                    "Anthropic API rate limit hit; retrying in {}s (attempt {}/{})",
+                    "Anthropic API rate limit hit; retrying in {}s... (attempt {}/{})",
                     delay_secs,
                     attempt + 1,
                     MAX_RETRIES
