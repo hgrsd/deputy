@@ -1,7 +1,6 @@
 use crate::{
-    context::system_prompt,
     core::Message,
-    provider::anthropic::session_builder::AnthropicSessionBuilder,
+    provider::{Provider, factory::ProviderFactory},
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
     ui::{DisplayManager, input::InputHandler},
 };
@@ -19,15 +18,30 @@ mod ui;
 #[command(about = "An agentic CLI assistant")]
 #[command(version)]
 struct Args {
-    /// Claude model to use
+    /// Provider to use
+    #[arg(short, long, value_enum, default_value_t = Provider::Anthropic)]
+    provider: Provider,
+
+    /// Model to use (provider-specific)
     #[arg(short, long, default_value = "claude-sonnet-4-20250514")]
-    model: String,
+    model: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let anthropic_key = std::env::var("ANTHROPIC_API_KEY").expect("ANTHROPIC_API_KEY must be set");
+
+    if let Err(error) = args.provider.validate_configuration() {
+        eprintln!("Configuration error: {}", error);
+        eprintln!("\nFor provider setup help:");
+        match args.provider {
+            Provider::Anthropic => {
+                eprintln!("  Set ANTHROPIC_API_KEY environment variable");
+                eprintln!("  Get your API key from: https://console.anthropic.com/");
+            }
+        }
+        std::process::exit(1);
+    }
 
     let display_manager = DisplayManager::new();
 
@@ -35,26 +49,23 @@ async fn main() -> anyhow::Result<()> {
         display_manager.handle_message(message);
     };
 
-    let list_files_tool = Box::new(ListFilesTool {});
-    let read_files_tool = Box::new(ReadFilesTool {});
-    let write_file_tool = Box::new(WriteFileTool {});
-    let exec_command_tool = Box::new(ExecCommandTool {});
+    let tools: Vec<Box<dyn crate::core::Tool>> = vec![
+        Box::new(ListFilesTool {}),
+        Box::new(ReadFilesTool {}),
+        Box::new(WriteFileTool {}),
+        Box::new(ExecCommandTool {}),
+    ];
 
-    let mut session = AnthropicSessionBuilder::new()
-        .api_key(&anthropic_key)
-        .max_tokens(3_000)
-        .model_name(&args.model)
-        .system_prompt(&system_prompt())
-        .tool(list_files_tool)
-        .tool(read_files_tool)
-        .tool(write_file_tool)
-        .tool(exec_command_tool)
-        .on_message(on_message)
-        .build()
-        .expect("Failed to build session");
+    let model = args.model.unwrap();
+    let mut session =
+        ProviderFactory::build_session(args.provider.clone(), &model, tools, on_message)?;
 
     let mut input_handler = InputHandler::new()?;
-    println!("┌─ Deputy ready! Using model: {}", args.model);
+
+    println!(
+        "┌─ Deputy ready! Using provider: {}, model: {}",
+        args.provider, &model
+    );
     println!("│ Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
     println!("└─");
 
