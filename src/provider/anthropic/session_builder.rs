@@ -1,21 +1,22 @@
 use std::collections::HashMap;
 
 use crate::{
-    core::{Message, Tool},
+    core::Tool,
+    io::IO,
     provider::anthropic::{anthropic_model::AnthropicModel, types::Tool as AnthropicTool},
     session::Session,
 };
 
-pub struct AnthropicSessionBuilder<F: Fn(&Message)> {
+pub struct AnthropicSessionBuilder<'a> {
     api_key: Option<String>,
     model_name: Option<String>,
     max_tokens: Option<u32>,
     system_prompt: Option<String>,
     tools: HashMap<String, Box<dyn Tool>>,
-    on_message: Option<F>,
+    io: Option<&'a mut Box<dyn IO>>,
 }
 
-impl<F: Fn(&Message)> AnthropicSessionBuilder<F> {
+impl<'a> AnthropicSessionBuilder<'a> {
     pub fn new() -> Self {
         Self {
             api_key: None,
@@ -23,8 +24,13 @@ impl<F: Fn(&Message)> AnthropicSessionBuilder<F> {
             max_tokens: None,
             system_prompt: None,
             tools: HashMap::new(),
-            on_message: None,
+            io: None,
         }
+    }
+
+    pub fn io(mut self, io: &'a mut Box<dyn IO>) -> Self {
+        self.io = Some(io);
+        self
     }
 
     pub fn api_key(mut self, api_key: &str) -> Self {
@@ -53,12 +59,7 @@ impl<F: Fn(&Message)> AnthropicSessionBuilder<F> {
         self
     }
 
-    pub fn on_message(mut self, callback: F) -> Self {
-        self.on_message = Some(callback);
-        self
-    }
-
-    pub fn build(self) -> anyhow::Result<Session<AnthropicModel, F>> {
+    pub fn build(self) -> anyhow::Result<Session<'a, AnthropicModel>> {
         let api_key = self
             .api_key
             .ok_or_else(|| anyhow::anyhow!("API key is required"))?;
@@ -68,9 +69,7 @@ impl<F: Fn(&Message)> AnthropicSessionBuilder<F> {
         let max_tokens = self
             .max_tokens
             .ok_or_else(|| anyhow::anyhow!("Max tokens is required"))?;
-        let on_message = self
-            .on_message
-            .ok_or_else(|| anyhow::anyhow!("Message callback is required"))?;
+        let io = self.io.ok_or_else(|| anyhow::anyhow!("IO is required"))?;
 
         let anthropic_tools = if self.tools.is_empty() {
             None
@@ -95,6 +94,6 @@ impl<F: Fn(&Message)> AnthropicSessionBuilder<F> {
             anthropic_tools,
         );
 
-        Ok(Session::new(anthropic_model, self.tools, on_message))
+        Ok(Session::new(anthropic_model, self.tools, io))
     }
 }

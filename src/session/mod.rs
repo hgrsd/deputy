@@ -3,24 +3,27 @@ use std::{
     io::{BufRead, Write},
 };
 
-use crate::core::{Message, Model, PermissionMode, Tool};
+use crate::{
+    core::{Message, Model, PermissionMode, Tool},
+    io::IO,
+};
 
-pub struct Session<M: Model, F: Fn(&Message)> {
+pub struct Session<'a, M: Model> {
     model: M,
     message_history: Vec<Message>,
     tools: HashMap<String, Box<dyn Tool>>,
     tool_permissions: HashMap<String, PermissionMode>,
-    on_message: F,
+    io: &'a mut Box<dyn IO>,
 }
 
-impl<M: Model, F: Fn(&Message)> Session<M, F> {
-    pub fn new(model: M, tools: HashMap<String, Box<dyn Tool>>, on_message: F) -> Self {
+impl<'a, M: Model> Session<'a, M> {
+    pub fn new(model: M, tools: HashMap<String, Box<dyn Tool>>, io: &'a mut Box<dyn IO>) -> Self {
         Self {
             model,
             message_history: Vec::new(),
             tools,
             tool_permissions: HashMap::new(),
-            on_message,
+            io,
         }
     }
 
@@ -49,6 +52,38 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
         }
     }
 
+    fn display_message(&self, message: &Message) {
+        match message {
+            Message::User(text) => self.io.show_message("You", text),
+            Message::Model(text) => self.io.show_message("Deputy", text),
+            Message::ToolCall {
+                id: _,
+                tool_name,
+                arguments: _,
+            } => self.io.show_message(
+                "Tool use",
+                &format!("Deputy is using the {} tool", tool_name),
+            ),
+            _ => {}
+        }
+    }
+
+    pub async fn run(&mut self) -> anyhow::Result<()> {
+        while let Some(input) = self.io.get_user_input("> ")? {
+            if input.is_empty() {
+                continue;
+            }
+            if input == "exit" {
+                break;
+            }
+            self.io.show_message("You", &input);
+            let message = Message::User(input.clone());
+            self.send_message(message).await?;
+        }
+
+        Ok(())
+    }
+
     pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
         let mut current_message = message.clone();
         let debug_mode = std::env::var("DEPUTY_DEBUG").unwrap_or_default() == "true";
@@ -66,7 +101,7 @@ impl<M: Model, F: Fn(&Message)> Session<M, F> {
 
             for m in response {
                 self.message_history.push(m.clone());
-                (self.on_message)(&m);
+                self.display_message(&m);
                 if let Message::ToolCall {
                     id,
                     tool_name,

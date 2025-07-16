@@ -68,7 +68,7 @@ impl AnthropicModel {
 
             if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_RETRIES {
                 let delay_secs = BASE_DELAY_SECS * 2_u64.pow(attempt);
-                println!(
+                eprintln!(
                     "Anthropic API rate limit hit; retrying in {}s... (attempt {}/{})",
                     delay_secs,
                     attempt + 1,

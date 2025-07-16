@@ -1,10 +1,8 @@
-use crate::core::Message;
-
-pub struct DisplayManager {
+pub struct Display {
     terminal_width: usize,
 }
 
-impl DisplayManager {
+impl Display {
     pub fn new() -> Self {
         Self {
             terminal_width: Self::get_terminal_width(),
@@ -18,19 +16,7 @@ impl DisplayManager {
         }
     }
 
-    pub fn handle_message(&self, message: &Message) {
-        match message {
-            Message::User(text) => {
-                self.print_message_box("You", text);
-            }
-            Message::Model(text) => {
-                self.print_message_box("Deputy", text);
-            }
-            _ => {}
-        }
-    }
-
-    fn print_message_box(&self, title: &str, text: &str) {
+    pub fn print_message_box(&self, title: &str, text: &str) {
         let content_width = self.terminal_width.saturating_sub(4);
 
         println!("\n┌─ {}", title);

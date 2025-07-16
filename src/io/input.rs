@@ -28,7 +28,6 @@ impl InputHandler {
                 if !line.trim().is_empty() {
                     self.editor.add_history_entry(line.as_str())?;
                 }
-                // Clear the input line after user presses enter
                 self.clear_input_line()?;
                 Ok(Some(line.trim().to_owned()))
             }

@@ -1,17 +1,16 @@
 use crate::{
-    core::Message,
-    provider::{Provider, factory::ProviderFactory},
+    io::{IO, TerminalIO},
+    provider::{Provider, session_factory::SessionFactory},
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
-    ui::{DisplayManager, input::InputHandler},
 };
 use clap::Parser;
 
 mod context;
 mod core;
+mod io;
 mod provider;
 mod session;
 mod tools;
-mod ui;
 
 #[derive(Parser)]
 #[command(name = "deputy")]
@@ -43,12 +42,6 @@ async fn main() -> anyhow::Result<()> {
         std::process::exit(1);
     }
 
-    let display_manager = DisplayManager::new();
-
-    let on_message = |message: &Message| {
-        display_manager.handle_message(message);
-    };
-
     let tools: Vec<Box<dyn crate::core::Tool>> = vec![
         Box::new(ListFilesTool {}),
         Box::new(ReadFilesTool {}),
@@ -56,31 +49,19 @@ async fn main() -> anyhow::Result<()> {
         Box::new(ExecCommandTool {}),
     ];
 
+    let mut io: Box<dyn IO> = Box::new(TerminalIO::new()?);
     let model = args.model.unwrap();
-    let mut session =
-        ProviderFactory::build_session(args.provider.clone(), &model, tools, on_message)?;
 
-    let mut input_handler = InputHandler::new()?;
-
-    println!(
-        "┌─ Deputy ready! Using provider: {}, model: {}",
-        args.provider, &model
+    io.show_message(
+        &format!(
+            "Deputy ready! Using provider: {}, model: {}",
+            args.provider, &model
+        ),
+        "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );
-    println!("│ Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
-    println!("└─");
 
-    while let Some(input) = input_handler.read_line("\n> ")? {
-        if input.is_empty() {
-            continue;
-        }
-        if input == "exit" {
-            break;
-        }
-
-        let message = Message::User(input);
-        display_manager.handle_message(&message);
-        session.send_message(message).await?;
-    }
+    let mut session = SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io)?;
+    session.run().await?;
 
     Ok(())
 }

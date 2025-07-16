@@ -1,5 +1,5 @@
 pub mod anthropic;
-pub mod factory;
+pub mod session_factory;
 
 use clap::ValueEnum;
 
