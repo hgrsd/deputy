@@ -62,7 +62,7 @@ impl DisplayManager {
                         for chunk in word.chars().collect::<Vec<_>>().chunks(width) {
                             wrapped_lines.push(chunk.iter().collect());
                         }
-                    } else if current_line.len() + word.len() + 1 <= width {
+                    } else if current_line.len() + word.len() < width {
                         if !current_line.is_empty() {
                             current_line.push(' ');
                         }

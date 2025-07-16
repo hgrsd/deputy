@@ -1,5 +1,5 @@
 use crate::{
-    config::system_prompt,
+    context::system_prompt,
     core::Message,
     provider::anthropic::session_builder::AnthropicSessionBuilder,
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
@@ -7,7 +7,7 @@ use crate::{
 };
 use clap::Parser;
 
-mod config;
+mod context;
 mod core;
 mod provider;
 mod session;
@@ -31,7 +31,6 @@ async fn main() -> anyhow::Result<()> {
 
     let display_manager = DisplayManager::new();
 
-    // Create a closure that captures the display manager
     let on_message = |message: &Message| {
         display_manager.handle_message(message);
     };
@@ -59,28 +58,17 @@ async fn main() -> anyhow::Result<()> {
     println!("│ Type your commands below. Type 'exit' to exit (or use Ctrl-C).");
     println!("└─");
 
-    loop {
-        match input_handler.read_line("\n> ")? {
-            Some(input) => {
-                let trimmed = input.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-
-                if trimmed == "exit" {
-                    break;
-                }
-
-                let message = Message::User(trimmed.to_owned());
-
-                // Display the user message first
-                display_manager.handle_message(&message);
-
-                // Then send it to the session for processing
-                session.send_message(message).await?;
-            }
-            None => break,
+    while let Some(input) = input_handler.read_line("\n> ")? {
+        if input.is_empty() {
+            continue;
         }
+        if input == "exit" {
+            break;
+        }
+
+        let message = Message::User(input);
+        display_manager.handle_message(&message);
+        session.send_message(message).await?;
     }
 
     Ok(())

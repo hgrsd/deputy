@@ -128,26 +128,24 @@ fn list_files_recursive(
             }
         });
 
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let entry_path = entry.path();
+        for entry in entries.into_iter().flatten() {
+            let entry_path = entry.path();
 
-                if should_include_path(&entry_path, gitignore, include_hidden) {
-                    if entry_path.is_dir() {
-                        output.push_str(&format!(
-                            "{}{}/ (directory)\n",
-                            indent,
-                            entry_path.display()
-                        ));
-                        output.push_str(&list_files_recursive(
-                            &entry_path,
-                            depth + 1,
-                            gitignore,
-                            include_hidden,
-                        ));
-                    } else {
-                        output.push_str(&format!("{}{}\n", indent, entry_path.display()));
-                    }
+            if should_include_path(&entry_path, gitignore, include_hidden) {
+                if entry_path.is_dir() {
+                    output.push_str(&format!(
+                        "{}{}/ (directory)\n",
+                        indent,
+                        entry_path.display()
+                    ));
+                    output.push_str(&list_files_recursive(
+                        &entry_path,
+                        depth + 1,
+                        gitignore,
+                        include_hidden,
+                    ));
+                } else {
+                    output.push_str(&format!("{}{}\n", indent, entry_path.display()));
                 }
             }
         }

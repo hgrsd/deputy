@@ -30,7 +30,7 @@ impl InputHandler {
                 }
                 // Clear the input line after user presses enter
                 self.clear_input_line()?;
-                Ok(Some(line))
+                Ok(Some(line.trim().to_owned()))
             }
             Err(ReadlineError::Interrupted) => Ok(None),
             Err(ReadlineError::Eof) => {
