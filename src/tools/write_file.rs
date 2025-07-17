@@ -29,12 +29,12 @@ fn diff(old_content: &str, new_content: &str) -> String {
     let diff = TextDiff::from_lines(old_content, new_content);
     let mut result = String::new();
     for change in diff.iter_all_changes() {
-        let (prefix, reset) = match change.tag() {
-            ChangeTag::Delete => ("\x1b[31m- ", "\x1b[0m"),
-            ChangeTag::Insert => ("\x1b[32m+ ", "\x1b[0m"),
-            ChangeTag::Equal => (" ", ""),
+        let prefix = match change.tag() {
+            ChangeTag::Delete => "\x1b[31m- ",
+            ChangeTag::Insert => "\x1b[32m+ ",
+            ChangeTag::Equal => " ",
         };
-        result.push_str(&format!("{}{}{}", prefix, change.value(), reset));
+        result.push_str(&format!("{}{}\x1b[0m", prefix, change.value()));
     }
     result
 }
@@ -50,12 +50,12 @@ fn diff_summary(old_content: &str, new_content: &str, max_lines: usize) -> Strin
             }
         }
         found_first_change = true;
-        let (prefix, reset) = match change.tag() {
-            ChangeTag::Delete => ("\x1b[31m- ", "\x1b[0m"),
-            ChangeTag::Insert => ("\x1b[32m+ ", "\x1b[0m"),
-            ChangeTag::Equal => (" ", ""),
+        let prefix = match change.tag() {
+            ChangeTag::Delete => "\x1b[31m- ",
+            ChangeTag::Insert => "\x1b[32m+ ",
+            ChangeTag::Equal => " ",
         };
-        result.push_str(&format!("{}{}{}", prefix, change.value(), reset));
+        result.push_str(&format!("{}{}", prefix, change.value()));
     }
 
     let mut curtailed = result
