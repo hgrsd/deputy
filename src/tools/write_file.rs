@@ -65,7 +65,7 @@ fn diff_summary(old_content: &str, new_content: &str, max_lines: usize) -> Strin
         .join("\n");
     if result.lines().count() > max_lines {
         curtailed.push_str(&format!(
-            "... ({} more lines)",
+            "\x1b[0m\n(...{} more lines)",
             result.lines().count() - max_lines
         ));
     }

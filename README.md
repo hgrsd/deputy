@@ -1,68 +1,97 @@
 # Deputy
 
-A command-line AI assistant that acts as your coding deputy. Deputy integrates with Anthropic's Claude API to provide an intelligent assistant with file system access, capable of reading, writing, and executing commands in your project directory.
+An experimental AI coding assistant that works directly in your terminal. Deputy is a research project exploring how agentic LLM systems can integrate with development workflows, providing an assistant that can read your code, write files, execute commands, and help you navigate complex projects.
 
-## Features
+Deputy is currently experimental and built to understand how agentic LLM systems work in practice. While functional and useful, it's actively evolving toward a more robust, production-quality assistant.
 
-- Interactive chat interface
-- File system operations (read, write, list files)
-- Command execution capabilities
-- Contextual awareness of your project structure
-- Configurable AI provider and model selection
+## The Experiment
+
+This project explores how AI assistants can move beyond simple chat interfaces to become true development partners. Instead of copying and pasting code snippets, Deputy works directly in your project directory and can:
+
+- **Understand your entire codebase** by reading files and exploring project structure
+- **Make actual changes** by writing and editing files for you
+- **Execute commands** to test, build, or analyze your project
+- **Maintain context** across your entire conversation, remembering what you've discussed
+
+The aim is to understand what makes an AI assistant truly helpful for developers and how to build systems that can reason about code, understand project context, and take meaningful actions.
+
+## Current Capabilities
+
+### Core Features
+- **Interactive chat interface** - Natural conversation about your code
+- **File system operations** - Read, write, and manage files across your project
+- **Command execution** - Run tests, build scripts, git commands, and more
+- **Project awareness** - Understands your project structure and dependencies
+
+### AI Integration
+- **Multiple provider support** - Designed to work with different AI providers (currently Anthropic)
+- **Model selection** - Choose the right model for your task
+- **Configurable behavior** - Experiment with different approaches
 
 ## Installation
 
-1. Clone the repository:
+1. **Clone and install:**
    ```bash
    git clone https://github.com/hgrsd/deputy
    cd deputy
-   ```
-
-2. Install using Cargo:
-   ```bash
    cargo install --path .
    ```
 
-3. Set up your Anthropic API key:
+2. **Set up your API key:**
    ```bash
    export ANTHROPIC_API_KEY=your_api_key_here
    ```
-   
-   Alternatively, you can set it when running the binary:
-   ```bash
-   ANTHROPIC_API_KEY=your_api_key_here deputy
-   ```
+   *(Currently supports Anthropic - more providers planned)*
 
-## Usage
+## Getting Started
 
-Simply run the binary and start chatting with your deputy:
+Navigate to any project directory and start Deputy:
 
 ```bash
+cd your-project
 deputy
 ```
 
-You can customize the AI provider and model:
+Try asking Deputy to:
+- "Can you explain what this main.rs file does?"
+- "Help me add error handling to this function"
+- "Write a test for this module"
+- "Refactor this code to be more readable"
+
+Type `exit` or press Ctrl-C to quit.
+
+## Usage Options
 
 ```bash
-# Use a specific provider (currently only 'anthropic' is supported)
+# Basic usage
+deputy
+
+# Specify provider (currently: anthropic)
 deputy --provider anthropic
 
-# Use a specific model
+# Specify model (default: claude-sonnet-4-20250514)
 deputy --model claude-opus-4-20250514
 
-# Combine provider and model options
+# Combine options
 deputy --provider anthropic --model claude-opus-4-20250514
 
-# Using short flags
+# Use short flags
 deputy -p anthropic -m claude-opus-4-20250514
 
-# See all available options
+# See all options
 deputy --help
 ```
 
-The default provider is `anthropic` and the default model is `claude-sonnet-4-20250514` if none are specified.
+## Current Status
 
-Type your commands or questions, and Deputy will assist you with code analysis, file operations, and project management tasks. Type `exit` to quit (or use Ctrl-C).
+As an experimental project, Deputy is actively being developed. Current areas of focus include:
+- Adding support for more AI providers
+- Better error handling and recovery
+- Enhanced configuration options
+
+## Contributing
+
+Contributions are welcome! Whether you're interested in adding new AI providers, improving the conversation flow, better error handling, performance optimizations, or documentation improvements, feel free to open issues or submit pull requests.
 
 ## License
 
