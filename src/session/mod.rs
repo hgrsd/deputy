@@ -156,7 +156,7 @@ impl<'a, M: Model> Session<'a, M> {
                             .get(&tool_name)
                             .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
 
-                        let result = match tool.call(arguments).await {
+                        let result = match tool.call(arguments, self.io).await {
                             Ok(output) => {
                                 if debug_mode {
                                     eprintln!("[DEBUG] Tool result (success): {}", output);

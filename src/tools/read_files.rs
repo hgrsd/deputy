@@ -79,9 +79,10 @@ impl Tool for ReadFilesTool {
         })
     }
 
-    fn call(
+    fn call<'a>(
         &self,
         args: serde_json::Value,
+        _io: &'a mut Box<dyn IO>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>>
     {
         Box::pin(async move {
