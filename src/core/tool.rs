@@ -12,6 +12,6 @@ pub trait Tool {
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + 'a>>;
-    fn ask_permission<'a>(&self, args: serde_json::Value, io: &'a mut Box<dyn IO>);
+    fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>);
     fn permission_id(&self, args: serde_json::Value) -> String;
 }

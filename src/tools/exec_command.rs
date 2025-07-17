@@ -35,11 +35,8 @@ impl Tool for ExecCommandTool {
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
         let input: Input = serde_json::from_value(args).expect("unable to parse argument");
         io.show_message(
-            "Permission Request",
-            &format!(
-                "deputy wants to execute the following command: {}",
-                &input.command
-            ),
+            "deputy wants to execute the following command",
+            &input.command,
         );
     }
 
@@ -51,7 +48,7 @@ impl Tool for ExecCommandTool {
     fn call<'a>(
         &'a self,
         args: serde_json::Value,
-        _io: &'a mut Box<dyn IO>,
+        io: &'a mut Box<dyn IO>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
@@ -76,6 +73,28 @@ impl Tool for ExecCommandTool {
                 }
                 result.push_str(&format!("STDERR:\n{}", stderr));
             }
+
+            let output = if !stderr.is_empty() {
+                let error_output = stderr.lines().take(10).collect::<Vec<&str>>().join("\n");
+                let mut formatted_error = String::new();
+                formatted_error.push_str(&format!("\x1b[31m{}", error_output));
+                if stderr.lines().count() > 10 {
+                    formatted_error.push_str("\n... (truncated)");
+                }
+                formatted_error.push_str("\x1b[0m");
+                formatted_error
+            } else {
+                let output = stdout.lines().take(10).collect::<Vec<&str>>().join("\n");
+                let mut formatted_output = String::new();
+                formatted_output.push_str(&format!("\x1b[32m{}", output));
+                if stdout.lines().count() > 10 {
+                    formatted_output.push_str("\n... (truncated)");
+                }
+                formatted_output.push_str("\x1b[0m");
+                formatted_output
+            };
+
+            io.show_message(&input.command, &output);
 
             Ok(result)
         })
