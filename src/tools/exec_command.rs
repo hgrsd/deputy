@@ -49,10 +49,10 @@ impl Tool for ExecCommandTool {
     }
 
     fn call<'a>(
-        &self,
+        &'a self,
         args: serde_json::Value,
         _io: &'a mut Box<dyn IO>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>>
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
             let input: Input = serde_json::from_value(args)?;

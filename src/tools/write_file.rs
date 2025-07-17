@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
+use similar::{ChangeTag, TextDiff};
 
 use crate::{core::Tool, io::IO};
 
@@ -22,6 +23,63 @@ struct Input {
 fn get_path(input: &Input) -> PathBuf {
     let cwd = std::env::current_dir().expect("Failed to get current working directory");
     cwd.join(&input.path)
+}
+
+fn diff(old_content: &str, new_content: &str) -> String {
+    let diff = TextDiff::from_lines(old_content, new_content);
+    let mut result = String::new();
+    for change in diff.iter_all_changes() {
+        let (prefix, reset) = match change.tag() {
+            ChangeTag::Delete => ("\x1b[31m- ", "\x1b[0m"),
+            ChangeTag::Insert => ("\x1b[32m+ ", "\x1b[0m"),
+            ChangeTag::Equal => (" ", ""),
+        };
+        result.push_str(&format!("{}{}{}", prefix, change.value(), reset));
+    }
+    result
+}
+
+fn diff_summary(old_content: &str, new_content: &str, max_lines: usize) -> String {
+    let diff = TextDiff::from_lines(old_content, new_content);
+    let mut found_first_change = false;
+    let mut result = String::new();
+    for change in diff.iter_all_changes() {
+        if let ChangeTag::Equal = change.tag() {
+            if !found_first_change {
+                continue;
+            }
+        }
+        found_first_change = true;
+        let (prefix, reset) = match change.tag() {
+            ChangeTag::Delete => ("\x1b[31m- ", "\x1b[0m"),
+            ChangeTag::Insert => ("\x1b[32m+ ", "\x1b[0m"),
+            ChangeTag::Equal => (" ", ""),
+        };
+        result.push_str(&format!("{}{}{}", prefix, change.value(), reset));
+    }
+
+    let mut curtailed = result
+        .lines()
+        .take(max_lines)
+        .collect::<Vec<&str>>()
+        .join("\n");
+    if result.lines().count() > max_lines {
+        curtailed.push_str(&format!(
+            "... ({} more lines)",
+            result.lines().count() - max_lines
+        ));
+    }
+
+    curtailed
+}
+
+fn replace_range(full_text: &str, range: &Range, new_content: &str) -> String {
+    let mut lines = full_text.lines().collect::<Vec<_>>();
+    lines.splice(
+        range.start - 1..range.end,
+        new_content.lines().collect::<Vec<_>>(),
+    );
+    lines.join("\n")
 }
 
 impl Tool for WriteFileTool {
@@ -66,32 +124,29 @@ impl Tool for WriteFileTool {
     }
 
     fn call<'a>(
-        &self,
+        &'a self,
         args: serde_json::Value,
-        _io: &'a mut Box<dyn IO>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>>
+        io: &'a mut Box<dyn IO>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
             let input: Input = serde_json::from_value(args)?;
 
             let path = get_path(&input);
+            let current_file = std::fs::read_to_string(&path).unwrap_or_default();
 
-            if let Some(range) = input.range {
-                let file = std::fs::read_to_string(&path)?;
-                let iter = file.lines();
-                let prefix = iter.clone().take(range.start - 1);
-                let postfix = iter.clone().skip(range.end);
-                let joined_string: Vec<&str> = prefix
-                    .chain(std::iter::once(input.content.as_str()))
-                    .chain(postfix)
-                    .collect();
-                let content = joined_string.join("\n");
-                std::fs::write(&path, content)
-                    .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
+            let new_content = if let Some(range) = input.range {
+                replace_range(&current_file, &range, &input.content)
             } else {
-                std::fs::write(&path, input.content)
-                    .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
-            }
+                input.content
+            };
+
+            let short_diff = diff_summary(&current_file, &new_content, 15);
+
+            io.show_message(&format!("deputy edited {}", path.display()), &short_diff);
+
+            std::fs::write(&path, &new_content)
+                .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
             Ok("File written successfully".to_owned())
         })
     }
@@ -99,12 +154,16 @@ impl Tool for WriteFileTool {
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
         let input: Input = serde_json::from_value(args).expect("unable to parse input");
         let path = get_path(&input);
+        let current_file = std::fs::read_to_string(&path).unwrap_or_default();
+        let new_file = if let Some(range) = input.range {
+            replace_range(&current_file, &range, &input.content)
+        } else {
+            input.content
+        };
+        let diff = diff(&current_file, &new_file);
         io.show_message(
-            "Permission request",
-            &format!(
-                "deputy wants to write or edit the file at {}",
-                path.display()
-            ),
+            &format!("deputy wants to edit the file at {}", input.path),
+            &diff,
         );
     }
 

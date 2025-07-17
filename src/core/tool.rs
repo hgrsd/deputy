@@ -8,10 +8,10 @@ pub trait Tool {
     fn description(&self) -> String;
     fn input_schema(&self) -> serde_json::Value;
     fn call<'a>(
-        &self,
+        &'a self,
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + '_>>;
+    ) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + 'a>>;
     fn ask_permission<'a>(&self, args: serde_json::Value, io: &'a mut Box<dyn IO>);
     fn permission_id(&self, args: serde_json::Value) -> String;
 }
