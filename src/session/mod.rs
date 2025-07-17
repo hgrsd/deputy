@@ -28,7 +28,7 @@ impl<'a, M: Model> Session<'a, M> {
         let response = self
             .io
             .get_user_input(&format!(
-                "[1: allow, 2: always allow for {}, 3: deny] > ",
+                "[1: allow, 2: always allow for {}, 3: deny and tell me what to do differently] > ",
                 permission_id,
             ))
             .expect("Failed to read user input");
@@ -143,19 +143,20 @@ impl<'a, M: Model> Session<'a, M> {
                         }
                     };
 
-                    let result = if !allow {
-                        Message::ToolResult {
+                    if !allow {
+                        self.message_history.push(Message::ToolResult {
                             id,
                             output: String::from("The user did not allow this tool to be executed"),
                             is_error: true,
-                        }
+                        });
+                        turn_finished = true;
                     } else {
                         let tool = self
                             .tools
                             .get(&tool_name)
                             .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
 
-                        match tool.call(arguments).await {
+                        let result = match tool.call(arguments).await {
                             Ok(output) => {
                                 if debug_mode {
                                     eprintln!("[DEBUG] Tool result (success): {}", output);
@@ -176,9 +177,9 @@ impl<'a, M: Model> Session<'a, M> {
                                     is_error: true,
                                 }
                             }
-                        }
+                        };
+                        current_message = result;
                     };
-                    current_message = result;
                 }
             }
         }
