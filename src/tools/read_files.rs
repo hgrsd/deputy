@@ -91,16 +91,25 @@ impl Tool for ReadFilesTool {
             let paths = get_paths(&input);
             let mut output = String::new();
             for path in &paths {
-                let data = std::fs::read_to_string(path).expect("Failed to read file");
-                let lines = data.lines().collect::<Vec<_>>();
-                let limit = input.limit.unwrap_or(lines.len());
-                let offset = input.offset.unwrap_or(0);
-                let sampled_lines = &lines[offset..offset + limit.min(lines.len() - offset)];
-                output.push_str(&format!(
-                    "<path>\n{}\n</path>\n<data>\n{}\n</data>\n",
-                    path.display(),
-                    sampled_lines.join("\n")
-                ));
+                match std::fs::read_to_string(path) {
+                    Ok(data) => {
+                        let lines = data.lines().collect::<Vec<_>>();
+                        let limit = input.limit.unwrap_or(lines.len());
+                        let offset = input.offset.unwrap_or(0);
+                        let sampled_lines =
+                            &lines[offset..offset + limit.min(lines.len() - offset)];
+                        output.push_str(&format!(
+                            "<path>\n{}\n</path>\n<data>\n{}\n</data>\n",
+                            path.display(),
+                            sampled_lines.join("\n")
+                        ));
+                    }
+                    Err(error) => output.push_str(&format!(
+                        "<path>\n{}\n</path>\n<error>\n{}\n</error>\n",
+                        path.display(),
+                        error,
+                    )),
+                };
             }
             Ok(output)
         })
