@@ -2,18 +2,11 @@
 
 An experimental AI coding assistant that works directly in your terminal. Deputy is a research project exploring how agentic LLM systems can integrate with development workflows, providing an assistant that can read your code, write files, execute commands, and help you navigate complex projects.
 
-Deputy is currently experimental and built to understand how agentic LLM systems work in practice. While functional and useful, it's actively evolving toward a more robust, production-quality assistant.
+![](assets/e1.png)
+![](assets/e2.png)
 
-## The Experiment
+Deputy is currently experimental and built to understand how agentic LLM systems work in practice. While functional and useful, it's actively evolving toward a more robust, production-quality assistant, and at the minute is probably lacking on many fronts. **Please feel free to contribute or open issues - I would love to collaborate on this**
 
-This project explores how AI assistants can move beyond simple chat interfaces to become true development partners. Instead of copying and pasting code snippets, Deputy works directly in your project directory and can:
-
-- **Understand your entire codebase** by reading files and exploring project structure
-- **Make actual changes** by writing and editing files for you
-- **Execute commands** to test, build, or analyze your project
-- **Maintain context** across your entire conversation, remembering what you've discussed
-
-The aim is to understand what makes an AI assistant truly helpful for developers and how to build systems that can reason about code, understand project context, and take meaningful actions.
 
 ## Current Capabilities
 
