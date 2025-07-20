@@ -4,6 +4,7 @@ An experimental AI coding assistant that works directly in your terminal. Deputy
 
 ![](assets/e1.png)
 ![](assets/e2.png)
+![](assets/e3.png)
 
 Deputy is currently experimental and built to understand how agentic LLM systems work in practice. While functional and useful, it's actively evolving toward a more robust, production-quality assistant, and at the minute is probably lacking on many fronts. **Please feel free to contribute or open issues - I would love to collaborate on this**
 
