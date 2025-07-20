@@ -82,7 +82,7 @@ impl Tool for ReadFilesTool {
     fn call<'a>(
         &'a self,
         args: serde_json::Value,
-        _io: &'a mut Box<dyn IO>,
+        io: &'a mut Box<dyn IO>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
@@ -94,21 +94,38 @@ impl Tool for ReadFilesTool {
                 match std::fs::read_to_string(path) {
                     Ok(data) => {
                         let lines = data.lines().collect::<Vec<_>>();
-                        let limit = input.limit.unwrap_or(lines.len());
+                        let total_lines = lines.len();
+                        let limit = input.limit.unwrap_or(total_lines);
                         let offset = input.offset.unwrap_or(0);
                         let sampled_lines =
-                            &lines[offset..offset + limit.min(lines.len() - offset)];
+                            &lines[offset..offset + limit.min(total_lines - offset)];
+                        
+                        // Show snippet to user - display what we're actually going to read
+                        let snippet_content = sampled_lines.join("\n");
+                        let effective_lines = sampled_lines.len();
+                        io.show_file_snippet(
+                            &path.to_string_lossy(), 
+                            &snippet_content, 
+                            effective_lines
+                        );
+
                         output.push_str(&format!(
                             "<path>\n{}\n</path>\n<data>\n{}\n</data>\n",
                             path.display(),
-                            sampled_lines.join("\n")
+                            snippet_content
                         ));
                     }
-                    Err(error) => output.push_str(&format!(
-                        "<path>\n{}\n</path>\n<error>\n{}\n</error>\n",
-                        path.display(),
-                        error,
-                    )),
+                    Err(error) => {
+                        io.show_message(
+                            &format!("Error reading: {}", path.to_string_lossy()),
+                            &error.to_string()
+                        );
+                        output.push_str(&format!(
+                            "<path>\n{}\n</path>\n<error>\n{}\n</error>\n",
+                            path.display(),
+                            error,
+                        ));
+                    }
                 };
             }
             Ok(output)
