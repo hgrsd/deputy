@@ -74,7 +74,6 @@ impl<'a, M: Model> Session<'a, M> {
             if input == "exit" {
                 break;
             }
-            self.io.show_message("You", &input);
             let message = Message::User(input.clone());
             self.send_message(message).await?;
         }

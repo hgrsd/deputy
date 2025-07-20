@@ -41,7 +41,7 @@ impl Context {
                             .unwrap_or_default()
                             .to_string_lossy();
 
-                        let marker = if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+                        let marker = if entry.file_type().is_some_and(|ft| ft.is_dir()) {
                             format!("{}/ (directory)", file_name)
                         } else {
                             file_name.to_string()
@@ -66,13 +66,11 @@ impl Context {
 
         let initial_file_tree = Self::generate_file_tree(&cwd);
 
-        let instruction_paths_priority_order = vec![
-            cwd.join("DEPUTY.md"),
+        let instruction_paths_priority_order = [cwd.join("DEPUTY.md"),
             PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
             cwd.join("AGENTS.md"),
             cwd.join("CLAUDE.md"),
-            PathBuf::from_str("~/.claude/CLAUDE.md").unwrap(),
-        ];
+            PathBuf::from_str("~/.claude/CLAUDE.md").unwrap()];
         let instructions = instruction_paths_priority_order
             .iter()
             .find(|path| path.exists())
