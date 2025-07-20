@@ -15,6 +15,7 @@ pub struct AnthropicSessionBuilder<'a> {
     context: Option<&'a Context>,
     tools: HashMap<String, Box<dyn Tool>>,
     io: Option<&'a mut Box<dyn IO>>,
+    yolo_mode: bool,
 }
 
 impl<'a> AnthropicSessionBuilder<'a> {
@@ -26,6 +27,7 @@ impl<'a> AnthropicSessionBuilder<'a> {
             context: None,
             tools: HashMap::new(),
             io: None,
+            yolo_mode: false,
         }
     }
 
@@ -57,6 +59,11 @@ impl<'a> AnthropicSessionBuilder<'a> {
     pub fn tool(mut self, tool: Box<dyn Tool>) -> Self {
         let name = tool.name();
         self.tools.insert(name, tool);
+        self
+    }
+
+    pub fn yolo_mode(mut self, yolo_mode: bool) -> Self {
+        self.yolo_mode = yolo_mode;
         self
     }
 
@@ -98,6 +105,6 @@ impl<'a> AnthropicSessionBuilder<'a> {
             anthropic_tools,
         );
 
-        Ok(Session::new(anthropic_model, self.tools, io, context))
+        Ok(Session::new(anthropic_model, self.tools, io, context, self.yolo_mode))
     }
 }

@@ -25,6 +25,10 @@ struct Args {
     /// Model to use (provider-specific)
     #[arg(short, long, default_value = "claude-sonnet-4-20250514")]
     model: Option<String>,
+
+    /// Enable yolo mode - run all tool calls without asking for permission (dangerous!)
+    #[arg(long)]
+    yolo: bool,
 }
 
 #[tokio::main]
@@ -49,16 +53,25 @@ async fn main() -> anyhow::Result<()> {
     let model = args.model.unwrap();
     let context = Context::from_env();
 
+    if args.yolo {
+        io.show_message(
+            "⚠️  YOLO MODE ENABLED ⚠️",
+            "All tool calls will execute automatically without permission prompts.\nThis can be dangerous - use with caution!",
+        );
+    }
+
     io.show_message(
         &format!(
-            "Deputy ready! Using provider: {}, model: {}",
-            args.provider, &model
+            "Deputy ready! Using provider: {}, model: {}{}",
+            args.provider, 
+            &model,
+            if args.yolo { " (YOLO MODE)" } else { "" }
         ),
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );
 
     let mut session =
-        SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io, &context)?;
+        SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io, &context, args.yolo)?;
     session.run().await?;
 
     Ok(())
