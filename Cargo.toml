@@ -1,6 +1,6 @@
 [package]
 name = "deputy"
-version = "0.2.1"
+version = "0.2.4"
 edition = "2024"
 description = "Agentic CLI tool"
 license = "MIT"
