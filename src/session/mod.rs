@@ -96,7 +96,6 @@ impl<'a, M: Model> Session<'a, M> {
 
             self.message_history.push(current_message.clone());
 
-            // Collect all tool calls from the response
             let mut tool_calls = Vec::new();
             let mut other_messages = Vec::new();
 
@@ -114,7 +113,10 @@ impl<'a, M: Model> Session<'a, M> {
 
             if !tool_calls.is_empty() {
                 turn_finished = false;
-                let mut tool_results = self.process_tool_calls(tool_calls, debug_mode).await?;
+                let on_rejected = || turn_finished = true;
+                let mut tool_results = self
+                    .process_tool_calls(tool_calls, debug_mode, on_rejected)
+                    .await?;
 
                 let (last_call, last_result) = tool_results.pop().unwrap();
 
@@ -134,6 +136,7 @@ impl<'a, M: Model> Session<'a, M> {
         &mut self,
         tool_calls: Vec<Message>,
         debug_mode: bool,
+        mut on_rejected: impl FnMut(),
     ) -> anyhow::Result<Vec<(Message, Message)>> {
         let mut tool_results = Vec::new();
         let mut user_denied_tool = false;
@@ -151,6 +154,7 @@ impl<'a, M: Model> Session<'a, M> {
                         output: String::from("Tool execution cancelled because the user denied a previous tool call in this batch. Control has been returned to the user to provide guidance on how to proceed."),
                         is_error: true,
                     }));
+                    on_rejected();
                     continue;
                 }
 
