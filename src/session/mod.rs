@@ -154,7 +154,6 @@ impl<'a, M: Model> Session<'a, M> {
                         output: String::from("Tool execution cancelled because the user denied a previous tool call in this batch. Control has been returned to the user to provide guidance on how to proceed."),
                         is_error: true,
                     }));
-                    on_rejected();
                     continue;
                 }
 
@@ -206,6 +205,7 @@ impl<'a, M: Model> Session<'a, M> {
                         output: String::from("The user denied this tool call. Control has been returned to the user to provide guidance on how to proceed differently."),
                         is_error: true,
                     }));
+                    on_rejected();
                 } else {
                     let tool = self
                         .tools
