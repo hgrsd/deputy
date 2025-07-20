@@ -29,6 +29,9 @@ Deputy is currently experimental and built to understand how agentic LLM systems
    git clone https://github.com/hgrsd/deputy
    cd deputy
    cargo install --path .
+
+   # alternatively, just install without cloning
+   cargo install deputy
    ```
 
 2. **Set up your API key:**
