@@ -62,7 +62,8 @@ async fn main() -> anyhow::Result<()> {
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );
 
-    let mut session = SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io, &context)?;
+    let mut session =
+        SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io, &context)?;
     session.run().await?;
 
     Ok(())

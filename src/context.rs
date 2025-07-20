@@ -1,13 +1,71 @@
+use ignore::WalkBuilder;
+use std::path::Path;
 use std::{path::PathBuf, str::FromStr};
 
 pub struct Context {
     agent_instructions: Option<String>,
     cwd: String,
+    initial_file_tree: Option<String>,
 }
 
 impl Context {
+    fn generate_file_tree(cwd: &Path) -> Option<String> {
+        let mut tree_lines = Vec::new();
+
+        let walker = WalkBuilder::new(cwd)
+            .max_depth(Some(2))
+            .hidden(false)
+            .git_ignore(true)
+            .git_exclude(true)
+            .git_global(true)
+            .build();
+
+        let mut entries: Vec<_> = walker.collect();
+        entries.sort_by(|a, b| match (a.as_ref(), b.as_ref()) {
+            (Ok(a_entry), Ok(b_entry)) => a_entry.path().cmp(b_entry.path()),
+            _ => std::cmp::Ordering::Equal,
+        });
+
+        for result in entries {
+            match result {
+                Ok(entry) => {
+                    if let Ok(relative_path) = entry.path().strip_prefix(cwd) {
+                        if relative_path.as_os_str().is_empty() {
+                            continue;
+                        }
+
+                        let depth = relative_path.components().count() - 1;
+                        let indent = "  ".repeat(depth);
+                        let file_name = relative_path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+
+                        let marker = if entry.file_type().map_or(false, |ft| ft.is_dir()) {
+                            format!("{}/ (directory)", file_name)
+                        } else {
+                            file_name.to_string()
+                        };
+
+                        tree_lines.push(format!("{}{}", indent, marker));
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
+
+        if tree_lines.is_empty() {
+            None
+        } else {
+            Some(tree_lines.join("\n"))
+        }
+    }
+
     pub fn from_env() -> Self {
         let cwd = std::env::current_dir().expect("Unable to detect current working directory");
+
+        let initial_file_tree = Self::generate_file_tree(&cwd);
+
         let instruction_paths_priority_order = vec![
             cwd.join("DEPUTY.md"),
             PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
@@ -23,6 +81,7 @@ impl Context {
         Self {
             agent_instructions: instructions,
             cwd: cwd.to_string_lossy().into_owned(),
+            initial_file_tree,
         }
     }
 
@@ -66,6 +125,20 @@ You are currently operating from the following working directory: {}.
 ",
 self.cwd
 ));
+
+        if let Some(file_tree) = &self.initial_file_tree {
+            prompt.push_str(&format!("
+
+## Initial Project Structure
+
+Here is the file tree of the current working directory at startup (this may change as we work):
+
+{}
+
+Note: This is a snapshot from when Deputy started. The actual file structure may have changed during our conversation as files are created, modified, or deleted.
+", file_tree));
+        }
+
         if let Some(instructions) = &self.agent_instructions {
             prompt.push_str("\n
             # User instructions
@@ -73,7 +146,7 @@ self.cwd
             permission to deviate from them. If you think you might benefit from deviating from them, then you should always ask the user for permission to do so.
         \n\n");
             prompt.push_str(&format!(
-                "<instructions>\n{}\n</instruction>\n",
+                "<instructions>\n{}\n</instructions>\n",
                 instructions
             ));
         }
