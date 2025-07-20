@@ -24,7 +24,7 @@ struct Args {
 
     /// Model to use (provider-specific)
     #[arg(short, long, default_value = "claude-sonnet-4-20250514")]
-    model: Option<String>,
+    model: String,
 
     /// Enable yolo mode - run all tool calls without asking for permission (dangerous!)
     #[arg(long)]
@@ -35,25 +35,13 @@ struct Args {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
-    if let Err(error) = args.provider.validate_configuration() {
-        eprintln!("Configuration error: {}", error);
-        eprintln!("\nFor provider setup help:");
-        match args.provider {
-            Provider::Anthropic => {
-                eprintln!("  Set ANTHROPIC_API_KEY environment variable");
-                eprintln!("  Get your API key from: https://console.anthropic.com/");
-            }
-        }
-        std::process::exit(1);
-    }
+    // Create context with all configuration
+    let context = Context::new(args.provider.clone(), args.model, args.yolo)?;
 
     let tools = ToolRegistry::with_default_tools().into_tools();
-
     let mut io: Box<dyn IO> = Box::new(TerminalIO::new()?);
-    let model = args.model.unwrap();
-    let context = Context::from_env();
 
-    if args.yolo {
+    if context.yolo_mode {
         io.show_message(
             "⚠️  YOLO MODE ENABLED ⚠️",
             "All tool calls will execute automatically without permission prompts.\nThis can be dangerous - use with caution!",
@@ -63,15 +51,14 @@ async fn main() -> anyhow::Result<()> {
     io.show_message(
         &format!(
             "Deputy ready! Using provider: {}, model: {}{}",
-            args.provider, 
-            &model,
-            if args.yolo { " (YOLO MODE)" } else { "" }
+            context.provider, 
+            context.model_name,
+            if context.yolo_mode { " (YOLO MODE)" } else { "" }
         ),
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );
 
-    let mut session =
-        SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io, &context, args.yolo)?;
+    let mut session = SessionFactory::build_session(tools, &mut io, &context)?;
     session.run().await?;
 
     Ok(())

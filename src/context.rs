@@ -1,11 +1,17 @@
 use ignore::WalkBuilder;
 use std::path::Path;
 use std::{path::PathBuf, str::FromStr};
+use crate::provider::Provider;
 
 pub struct Context {
     agent_instructions: Option<String>,
     cwd: String,
     initial_file_tree: Option<String>,
+    // Configuration fields
+    pub provider: Provider,
+    pub model_name: String,
+    pub yolo_mode: bool,
+    pub max_tokens: u32,
 }
 
 impl Context {
@@ -61,26 +67,38 @@ impl Context {
         }
     }
 
-    pub fn from_env() -> Self {
-        let cwd = std::env::current_dir().expect("Unable to detect current working directory");
+    pub fn new(provider: Provider, model_name: String, yolo_mode: bool) -> anyhow::Result<Self> {
+        // Validate provider configuration
+        if let Err(error) = provider.validate_configuration() {
+            return Err(anyhow::anyhow!("Provider configuration error: {}", error));
+        }
+
+        let cwd = std::env::current_dir()
+            .map_err(|e| anyhow::anyhow!("Unable to detect current working directory: {}", e))?;
 
         let initial_file_tree = Self::generate_file_tree(&cwd);
 
-        let instruction_paths_priority_order = [cwd.join("DEPUTY.md"),
+        let instruction_paths_priority_order = [
+            cwd.join("DEPUTY.md"),
             PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
             cwd.join("AGENTS.md"),
             cwd.join("CLAUDE.md"),
-            PathBuf::from_str("~/.claude/CLAUDE.md").unwrap()];
+            PathBuf::from_str("~/.claude/CLAUDE.md").unwrap()
+        ];
         let instructions = instruction_paths_priority_order
             .iter()
             .find(|path| path.exists())
             .and_then(|path| std::fs::read_to_string(path).ok());
 
-        Self {
+        Ok(Self {
             agent_instructions: instructions,
             cwd: cwd.to_string_lossy().into_owned(),
             initial_file_tree,
-        }
+            provider,
+            model_name,
+            yolo_mode,
+            max_tokens: 5_000, // Default value
+        })
     }
 
     pub fn system_prompt(&self) -> String {

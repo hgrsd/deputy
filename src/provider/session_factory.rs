@@ -15,21 +15,13 @@ pub struct SessionFactory;
 
 impl SessionFactory {
     fn build_anthropic_session<'a>(
-        model: &str,
         tools: Vec<Box<dyn Tool>>,
         io: &'a mut Box<dyn IO>,
         context: &'a Context,
-        yolo_mode: bool,
     ) -> Result<Session<'a, AnthropicModel>> {
-        let api_key = std::env::var("ANTHROPIC_API_KEY").expect("ANTHROPIC_API_KEY must be set");
-
         let mut builder = AnthropicSessionBuilder::new()
-            .api_key(&api_key)
-            .max_tokens(5_000)
-            .model_name(model)
             .context(context)
-            .io(io)
-            .yolo_mode(yolo_mode);
+            .io(io);
 
         for tool in tools {
             builder = builder.tool(tool);
@@ -39,16 +31,13 @@ impl SessionFactory {
     }
 
     pub fn build_session<'a>(
-        provider: Provider,
-        model: &str,
         tools: Vec<Box<dyn Tool>>,
         io: &'a mut Box<dyn IO>,
         context: &'a Context,
-        yolo_mode: bool,
     ) -> Result<SessionWrapper<'a>> {
-        match provider {
+        match context.provider {
             Provider::Anthropic => {
-                let session = Self::build_anthropic_session(model, tools, io, context, yolo_mode)?;
+                let session = Self::build_anthropic_session(tools, io, context)?;
                 Ok(SessionWrapper::Anthropic(session))
             }
         }

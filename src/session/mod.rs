@@ -12,7 +12,7 @@ pub struct Session<'a, M: Model> {
     tools: HashMap<String, Box<dyn Tool>>,
     tool_permissions: HashMap<String, PermissionMode>,
     io: &'a mut Box<dyn IO>,
-    yolo_mode: bool,
+    context: &'a Context,
 }
 
 impl<'a, M: Model> Session<'a, M> {
@@ -20,8 +20,7 @@ impl<'a, M: Model> Session<'a, M> {
         model: M,
         tools: HashMap<String, Box<dyn Tool>>,
         io: &'a mut Box<dyn IO>,
-        _context: &Context,
-        yolo_mode: bool,
+        context: &'a Context,
     ) -> Self {
         Self {
             model,
@@ -29,7 +28,7 @@ impl<'a, M: Model> Session<'a, M> {
             tools,
             tool_permissions: HashMap::new(),
             io,
-            yolo_mode,
+            context,
         }
     }
 
@@ -176,7 +175,7 @@ impl<'a, M: Model> Session<'a, M> {
                     tool.permission_id(arguments.clone())
                 };
 
-                let allow = if self.yolo_mode {
+                let allow = if self.context.yolo_mode {
                     // In yolo mode, always allow tool execution
                     if debug_mode {
                         eprintln!("[DEBUG] YOLO MODE: Auto-allowing tool {} with permission_id {}", tool_name, permission_id);
