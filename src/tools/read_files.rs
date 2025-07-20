@@ -101,7 +101,7 @@ impl Tool for ReadFilesTool {
                             &lines[offset..offset + limit.min(total_lines - offset)];
 
                         let snippet_content = sampled_lines.join("\n");
-                        io.show_snippet(&path.to_string_lossy(), &snippet_content, 10);
+                        io.show_snippet(&format!("deputy is reading {}", &path.to_string_lossy()), &snippet_content);
 
                         output.push_str(&format!(
                             "<path>\n{}\n</path>\n<data>\n{}\n</data>\n",

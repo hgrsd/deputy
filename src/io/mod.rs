@@ -8,7 +8,7 @@ pub use input::InputHandler;
 
 pub trait IO: Send + Sync {
     fn show_message(&self, title: &str, text: &str);
-    fn show_snippet(&self, title: &str, text: &str, max_lines: usize);
+    fn show_snippet(&self, title: &str, text: &str);
     fn get_user_input(&mut self, prompt: &str) -> anyhow::Result<Option<String>>;
 }
 
@@ -30,8 +30,9 @@ impl IO for TerminalIO {
         self.display.print_message_box(title, text);
     }
 
-    fn show_snippet(&self, path: &str, content: &str, total_lines: usize) {
-        let snippet_lines = content.lines().take(10).collect::<Vec<&str>>();
+    fn show_snippet(&self, title: &str, text: &str) {
+        let total_lines = text.lines().count();
+        let snippet_lines = text.lines().take(10).collect::<Vec<&str>>();
         let mut formatted_output = snippet_lines.join("\n");
 
         if total_lines > 10 {
@@ -39,7 +40,7 @@ impl IO for TerminalIO {
         }
 
         self.display
-            .print_message_box(&format!("Reading: {}", path), &formatted_output);
+            .print_message_box(title, &formatted_output);
     }
 
     fn get_user_input(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {

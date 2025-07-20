@@ -90,7 +90,7 @@ impl Tool for ExecCommandTool {
                 stdout.lines().take(10).collect::<Vec<&str>>().join("\n")
             };
 
-            io.show_snippet(&input.command, &output, 10);
+            io.show_snippet(&format!("deputy is running {}", &input.command), &output);
 
             Ok(result)
         })

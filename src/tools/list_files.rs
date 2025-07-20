@@ -101,7 +101,7 @@ impl Tool for ListFilesTool {
                 }
                 output
             };
-            io.show_snippet("listed files", &output, 10);
+            io.show_snippet(&format!("deputy is listing files in {}", path.display()), &output);
             Ok(output)
         })
     }
