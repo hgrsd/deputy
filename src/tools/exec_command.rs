@@ -75,9 +75,8 @@ impl Tool for ExecCommandTool {
             }
 
             let output = if !stderr.is_empty() {
-                let mut error_output = stderr
+                stderr
                     .lines()
-                    .take(10)
                     .map(|line| {
                         let mut s = String::new();
                         s.push_str("\x1b[31m");
@@ -86,22 +85,12 @@ impl Tool for ExecCommandTool {
                         s
                     })
                     .collect::<Vec<String>>()
-                    .join("\n");
-                if stderr.lines().count() > 10 {
-                    error_output.push_str("\n... (truncated)");
-                }
-                error_output
+                    .join("\n")
             } else {
-                let output = stdout.lines().take(10).collect::<Vec<&str>>().join("\n");
-                let mut formatted_output = String::new();
-                formatted_output.push_str(&output);
-                if stdout.lines().count() > 10 {
-                    formatted_output.push_str("\n... (truncated)");
-                }
-                formatted_output
+                stdout.lines().take(10).collect::<Vec<&str>>().join("\n")
             };
 
-            io.show_message(&input.command, &output);
+            io.show_snippet(&input.command, &output, 10);
 
             Ok(result)
         })

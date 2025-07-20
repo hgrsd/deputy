@@ -73,7 +73,7 @@ impl Tool for ListFilesTool {
     fn call<'a>(
         &'a self,
         args: serde_json::Value,
-        _io: &'a mut Box<dyn IO>,
+        io: &'a mut Box<dyn IO>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
@@ -82,13 +82,8 @@ impl Tool for ListFilesTool {
             let path = build_path(&input);
             let gitignore = build_gitignore(&path);
 
-            if input.recursive {
-                Ok(list_files_recursive(
-                    &path,
-                    0,
-                    &gitignore,
-                    input.include_hidden,
-                ))
+            let output = if input.recursive {
+                list_files_recursive(&path, 0, &gitignore, input.include_hidden)
             } else {
                 let mut output = String::new();
                 let entries = std::fs::read_dir(&path).expect("Failed to read directory");
@@ -104,8 +99,10 @@ impl Tool for ListFilesTool {
                         }
                     }
                 }
-                Ok(output)
-            }
+                output
+            };
+            io.show_snippet("listed files", &output, 10);
+            Ok(output)
         })
     }
 }

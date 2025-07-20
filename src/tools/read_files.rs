@@ -99,15 +99,9 @@ impl Tool for ReadFilesTool {
                         let offset = input.offset.unwrap_or(0);
                         let sampled_lines =
                             &lines[offset..offset + limit.min(total_lines - offset)];
-                        
-                        // Show snippet to user - display what we're actually going to read
+
                         let snippet_content = sampled_lines.join("\n");
-                        let effective_lines = sampled_lines.len();
-                        io.show_file_snippet(
-                            &path.to_string_lossy(), 
-                            &snippet_content, 
-                            effective_lines
-                        );
+                        io.show_snippet(&path.to_string_lossy(), &snippet_content, 10);
 
                         output.push_str(&format!(
                             "<path>\n{}\n</path>\n<data>\n{}\n</data>\n",
@@ -118,7 +112,7 @@ impl Tool for ReadFilesTool {
                     Err(error) => {
                         io.show_message(
                             &format!("Error reading: {}", path.to_string_lossy()),
-                            &error.to_string()
+                            &error.to_string(),
                         );
                         output.push_str(&format!(
                             "<path>\n{}\n</path>\n<error>\n{}\n</error>\n",
