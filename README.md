@@ -75,6 +75,9 @@ deputy --provider anthropic --model claude-opus-4-20250514
 # Use short flags
 deputy -p anthropic -m claude-opus-4-20250514
 
+# Use YOLO mode (dangerous, you know why)
+deputy --yolo
+
 # See all options
 deputy --help
 ```
