@@ -96,98 +96,146 @@ impl<'a, M: Model> Session<'a, M> {
 
             self.message_history.push(current_message.clone());
 
+            // Collect all tool calls from the response
+            let mut tool_calls = Vec::new();
+            let mut other_messages = Vec::new();
+
             for m in response {
+                match &m {
+                    Message::ToolCall { .. } => tool_calls.push(m),
+                    _ => other_messages.push(m),
+                }
+            }
+
+            // Display and add non-tool messages to history first
+            for m in other_messages {
                 self.message_history.push(m.clone());
                 self.display_message(&m);
-                if let Message::ToolCall {
-                    id,
-                    tool_name,
-                    arguments,
-                } = m
-                {
-                    turn_finished = false;
+            }
 
-                    let permission_id = {
-                        let tool = self
-                            .tools
-                            .get(&tool_name)
-                            .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
+            // Process all tool calls if any exist
+            if !tool_calls.is_empty() {
+                turn_finished = false;
+                let tool_results = self.process_tool_calls(tool_calls, debug_mode).await?;
 
-                        if debug_mode {
-                            eprintln!(
-                                "[DEBUG] Tool call: {} with arguments: {}",
-                                tool_name, arguments
-                            );
-                        }
+                for (call, result) in &tool_results {
+                    self.message_history.push(call.clone());
+                    self.message_history.push(result.clone());
+                }
 
-                        tool.permission_id(arguments.clone())
-                    };
+                if let Some((_, last_result)) = tool_results.last() {
+                    current_message = last_result.clone();
+                }
+            }
+        }
+        Ok(())
+    }
 
-                    let allow = match self
-                        .tool_permissions
+    async fn process_tool_calls(
+        &mut self,
+        tool_calls: Vec<Message>,
+        debug_mode: bool,
+    ) -> anyhow::Result<Vec<(Message, Message)>> {
+        let mut tool_results = Vec::new();
+        let mut user_denied_tool = false;
+
+        for tool_call in tool_calls {
+            if let Message::ToolCall {
+                id,
+                tool_name,
+                arguments,
+            } = tool_call
+            {
+                if user_denied_tool {
+                    tool_results.push((tool_call.clone(), Message::ToolResult {
+                        id,
+                        output: String::from("Tool execution cancelled because the user denied a previous tool call in this batch. Control has been returned to the user to provide guidance on how to proceed."),
+                        is_error: true,
+                    }));
+                    continue;
+                }
+
+                let permission_id = {
+                    let tool = self
+                        .tools
                         .get(&tool_name)
-                        .unwrap_or(&PermissionMode::Ask)
-                    {
-                        PermissionMode::Ask => {
+                        .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
+
+                    if debug_mode {
+                        eprintln!(
+                            "[DEBUG] Tool call: {} with arguments: {}",
+                            tool_name, arguments
+                        );
+                    }
+
+                    tool.permission_id(arguments.clone())
+                };
+
+                let allow = match self
+                    .tool_permissions
+                    .get(&tool_name)
+                    .unwrap_or(&PermissionMode::Ask)
+                {
+                    PermissionMode::Ask => {
+                        {
+                            let tool = self.tools.get(&tool_name).unwrap();
+                            tool.ask_permission(arguments.clone(), self.io);
+                        }
+                        self.prompt_for_permission(&tool_name, &permission_id)
+                    }
+                    PermissionMode::ApprovedForId { command_id } => {
+                        if &permission_id == command_id {
+                            true
+                        } else {
                             {
                                 let tool = self.tools.get(&tool_name).unwrap();
                                 tool.ask_permission(arguments.clone(), self.io);
                             }
                             self.prompt_for_permission(&tool_name, &permission_id)
                         }
-                        PermissionMode::ApprovedForId { command_id } => {
-                            if &permission_id == command_id {
-                                true
-                            } else {
-                                {
-                                    let tool = self.tools.get(&tool_name).unwrap();
-                                    tool.ask_permission(arguments.clone(), self.io);
-                                }
-                                self.prompt_for_permission(&tool_name, &permission_id)
+                    }
+                };
+
+                if !allow {
+                    user_denied_tool = true;
+                    tool_results.push((tool_call.clone(), Message::ToolResult {
+                        id,
+                        output: String::from("The user denied this tool call. Control has been returned to the user to provide guidance on how to proceed differently."),
+                        is_error: true,
+                    }));
+                } else {
+                    let tool = self
+                        .tools
+                        .get(&tool_name)
+                        .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
+
+                    let result = match tool.call(arguments, self.io).await {
+                        Ok(output) => {
+                            if debug_mode {
+                                eprintln!("[DEBUG] Tool result (success): {}", output);
+                            }
+                            Message::ToolResult {
+                                id,
+                                output,
+                                is_error: false,
+                            }
+                        }
+                        Err(error) => {
+                            if debug_mode {
+                                eprintln!("[DEBUG] Tool result (error): {}", error);
+                            }
+                            Message::ToolResult {
+                                id,
+                                output: error.to_string(),
+                                is_error: true,
                             }
                         }
                     };
-
-                    if !allow {
-                        self.message_history.push(Message::ToolResult {
-                            id,
-                            output: String::from("The user did not allow this tool to be executed"),
-                            is_error: true,
-                        });
-                        turn_finished = true;
-                    } else {
-                        let tool = self
-                            .tools
-                            .get(&tool_name)
-                            .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
-
-                        let result = match tool.call(arguments, self.io).await {
-                            Ok(output) => {
-                                if debug_mode {
-                                    eprintln!("[DEBUG] Tool result (success): {}", output);
-                                }
-                                Message::ToolResult {
-                                    id,
-                                    output,
-                                    is_error: false,
-                                }
-                            }
-                            Err(error) => {
-                                if debug_mode {
-                                    eprintln!("[DEBUG] Tool result (error): {}", error);
-                                }
-                                Message::ToolResult {
-                                    id,
-                                    output: error.to_string(),
-                                    is_error: true,
-                                }
-                            }
-                        };
-                        current_message = result;
-                    };
+                    tool_results.push((tool_call.clone(), result));
                 }
             }
         }
-        Ok(())
+
+        Ok(tool_results)
     }
 }
