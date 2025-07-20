@@ -43,19 +43,39 @@ fn diff_summary(old_content: &str, new_content: &str, max_lines: usize) -> Strin
     let diff = TextDiff::from_lines(old_content, new_content);
     let mut found_first_change = false;
     let mut result = String::new();
+    let mut equal_lines_before_change = Vec::new();
+    
     for change in diff.iter_all_changes() {
-        if let ChangeTag::Equal = change.tag() {
-            if !found_first_change {
-                continue;
+        match change.tag() {
+            ChangeTag::Equal => {
+                if !found_first_change {
+                    // Collect equal lines before first change, keeping only the last 5
+                    equal_lines_before_change.push(format!(" {}", change.value()));
+                    if equal_lines_before_change.len() > 5 {
+                        equal_lines_before_change.remove(0);
+                    }
+                } else {
+                    // After first change, include equal lines normally
+                    result.push_str(&format!(" {}\x1b[0m", change.value()));
+                }
+            }
+            ChangeTag::Delete | ChangeTag::Insert => {
+                if !found_first_change {
+                    // This is the first change - add the collected equal lines before it
+                    found_first_change = true;
+                    for equal_line in &equal_lines_before_change {
+                        result.push_str(&format!("{}\x1b[0m", equal_line));
+                    }
+                }
+                
+                let prefix = match change.tag() {
+                    ChangeTag::Delete => "\x1b[31m- ",
+                    ChangeTag::Insert => "\x1b[32m+ ",
+                    _ => unreachable!(),
+                };
+                result.push_str(&format!("{}{}\x1b[0m", prefix, change.value()));
             }
         }
-        found_first_change = true;
-        let prefix = match change.tag() {
-            ChangeTag::Delete => "\x1b[31m- ",
-            ChangeTag::Insert => "\x1b[32m+ ",
-            ChangeTag::Equal => " ",
-        };
-        result.push_str(&format!("{}{}\x1b[0m", prefix, change.value()));
     }
 
     let mut curtailed = result
