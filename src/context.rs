@@ -1,8 +1,34 @@
-pub fn system_prompt() -> String {
-    let cwd = std::env::current_dir().expect("Failed to get current working directory");
+use std::{path::PathBuf, str::FromStr};
 
-    format!("
+pub struct Context {
+    agent_instructions: Option<String>,
+    cwd: String,
+}
 
+impl Context {
+    pub fn from_env() -> Self {
+        let cwd = std::env::current_dir().expect("Unable to detect current working directory");
+        let instruction_paths_priority_order = vec![
+            cwd.join("DEPUTY.md"),
+            PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
+            cwd.join("AGENTS.md"),
+            cwd.join("CLAUDE.md"),
+            PathBuf::from_str("~/.claude/CLAUDE.md").unwrap(),
+        ];
+        let instructions = instruction_paths_priority_order
+            .iter()
+            .find(|path| path.exists())
+            .and_then(|path| std::fs::read_to_string(path).ok());
+
+        Self {
+            agent_instructions: instructions,
+            cwd: cwd.to_string_lossy().into_owned(),
+        }
+    }
+
+    pub fn system_prompt(&self) -> String {
+        let mut prompt = String::new();
+        prompt.push_str(&format!("
 # Deputy
 
 You are an agentic code assistant called deputy.
@@ -37,6 +63,20 @@ You should never just start editing files without a plan and without user approv
 # Context
 
 You are currently operating from the following working directory: {}.
-", cwd.to_string_lossy()
-)
+",
+self.cwd
+));
+        if let Some(instructions) = &self.agent_instructions {
+            prompt.push_str("\n
+            # User instructions
+            The user has provided the following instructions, which you should follow as best as possible, wherever relevant, unless the user has specifically given you
+            permission to deviate from them. If you think you might benefit from deviating from them, then you should always ask the user for permission to do so.
+        \n\n");
+            prompt.push_str(&format!(
+                "<instructions>\n{}\n</instruction>\n",
+                instructions
+            ));
+        }
+        prompt
+    }
 }
