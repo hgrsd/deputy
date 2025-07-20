@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    context::Context,
     core::Tool,
     io::IO,
     provider::anthropic::{anthropic_model::AnthropicModel, types::Tool as AnthropicTool},
@@ -11,7 +12,7 @@ pub struct AnthropicSessionBuilder<'a> {
     api_key: Option<String>,
     model_name: Option<String>,
     max_tokens: Option<u32>,
-    system_prompt: Option<String>,
+    context: Option<&'a Context>,
     tools: HashMap<String, Box<dyn Tool>>,
     io: Option<&'a mut Box<dyn IO>>,
 }
@@ -22,7 +23,7 @@ impl<'a> AnthropicSessionBuilder<'a> {
             api_key: None,
             model_name: None,
             max_tokens: None,
-            system_prompt: None,
+            context: None,
             tools: HashMap::new(),
             io: None,
         }
@@ -48,8 +49,8 @@ impl<'a> AnthropicSessionBuilder<'a> {
         self
     }
 
-    pub fn system_prompt(mut self, system_prompt: &str) -> Self {
-        self.system_prompt = Some(system_prompt.to_owned());
+    pub fn context(mut self, context: &'a Context) -> Self {
+        self.context = Some(context);
         self
     }
 
@@ -69,6 +70,9 @@ impl<'a> AnthropicSessionBuilder<'a> {
         let max_tokens = self
             .max_tokens
             .ok_or_else(|| anyhow::anyhow!("Max tokens is required"))?;
+        let context = self
+            .context
+            .ok_or_else(|| anyhow::anyhow!("Context is required"))?;
         let io = self.io.ok_or_else(|| anyhow::anyhow!("IO is required"))?;
 
         let anthropic_tools = if self.tools.is_empty() {
@@ -90,10 +94,10 @@ impl<'a> AnthropicSessionBuilder<'a> {
             api_key,
             model_name,
             max_tokens,
-            self.system_prompt,
+            Some(context.system_prompt()),
             anthropic_tools,
         );
 
-        Ok(Session::new(anthropic_model, self.tools, io))
+        Ok(Session::new(anthropic_model, self.tools, io, context))
     }
 }

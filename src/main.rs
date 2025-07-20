@@ -1,4 +1,5 @@
 use crate::{
+    context::Context,
     io::{IO, TerminalIO},
     provider::{Provider, session_factory::SessionFactory},
     tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
@@ -51,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut io: Box<dyn IO> = Box::new(TerminalIO::new()?);
     let model = args.model.unwrap();
+    let context = Context::from_env();
 
     io.show_message(
         &format!(
@@ -60,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );
 
-    let mut session = SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io)?;
+    let mut session = SessionFactory::build_session(args.provider.clone(), &model, tools, &mut io, &context)?;
     session.run().await?;
 
     Ok(())

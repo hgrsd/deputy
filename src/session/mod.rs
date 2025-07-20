@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    context::Context,
     core::{Message, Model, PermissionMode, Tool},
     io::IO,
 };
@@ -14,7 +15,7 @@ pub struct Session<'a, M: Model> {
 }
 
 impl<'a, M: Model> Session<'a, M> {
-    pub fn new(model: M, tools: HashMap<String, Box<dyn Tool>>, io: &'a mut Box<dyn IO>) -> Self {
+    pub fn new(model: M, tools: HashMap<String, Box<dyn Tool>>, io: &'a mut Box<dyn IO>, _context: &Context) -> Self {
         Self {
             model,
             message_history: Vec::new(),
