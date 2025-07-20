@@ -2,7 +2,7 @@ use crate::{
     context::Context,
     io::{IO, TerminalIO},
     provider::{Provider, session_factory::SessionFactory},
-    tools::{ExecCommandTool, ListFilesTool, ReadFilesTool, WriteFileTool},
+    tools::ToolRegistry,
 };
 use clap::Parser;
 
@@ -43,12 +43,7 @@ async fn main() -> anyhow::Result<()> {
         std::process::exit(1);
     }
 
-    let tools: Vec<Box<dyn crate::core::Tool>> = vec![
-        Box::new(ListFilesTool {}),
-        Box::new(ReadFilesTool {}),
-        Box::new(WriteFileTool {}),
-        Box::new(ExecCommandTool {}),
-    ];
+    let tools = ToolRegistry::with_default_tools().into_tools();
 
     let mut io: Box<dyn IO> = Box::new(TerminalIO::new()?);
     let model = args.model.unwrap();
