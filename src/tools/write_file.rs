@@ -55,7 +55,7 @@ fn diff_summary(old_content: &str, new_content: &str, max_lines: usize) -> Strin
             ChangeTag::Insert => "\x1b[32m+ ",
             ChangeTag::Equal => " ",
         };
-        result.push_str(&format!("{}{}", prefix, change.value()));
+        result.push_str(&format!("{}{}\x1b[0m", prefix, change.value()));
     }
 
     let mut curtailed = result
