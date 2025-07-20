@@ -1,97 +1,94 @@
 # Deputy
 
-An experimental AI coding assistant that works directly in your terminal. Deputy is a research project exploring how agentic LLM systems can integrate with development workflows, providing an assistant that can read your code, write files, execute commands, and help you navigate complex projects.
+Deputy is an experimental terminal-based AI coding assistant designed to explore the practical application of agentic LLM systems within development workflows. Rather than offering another chat interface, Deputy integrates directly with your filesystem and shell environment, providing an assistant capable of reading code, manipulating files, executing commands, and navigating complex project structures.
 
 ![](assets/e1.png)
 ![](assets/e2.png)
 ![](assets/e3.png)
 
-Deputy is currently experimental and built to understand how agentic LLM systems work in practice. While functional and useful, it's actively evolving toward a more robust, production-quality assistant, and at the minute is probably lacking on many fronts. **Please feel free to contribute or open issues - I would love to collaborate on this**
+This project represents active research into how agentic systems can meaningfully augment developer productivity. Whilst functional and genuinely useful, Deputy remains experimental and continues evolving towards a more robust, production-ready assistant. The current implementation deliberately prioritises exploration over polish, and contributions or issues are welcomed for collaborative development.
 
+## Architecture
 
-## Current Capabilities
+Deputy employs a modular architecture built around three core concepts: providers, tools, and sessions. Providers abstract different AI services (currently Anthropic's Claude), tools define the operations Deputy can perform within your environment, and sessions manage the conversation state and permission model.
 
-### Core Features
-- **Interactive chat interface** - Natural conversation about your code
-- **File system operations** - Read, write, and manage files across your project
-- **Command execution** - Run tests, build scripts, git commands, and more
-- **Project awareness** - Understands your project structure and dependencies
+The system initialises by scanning your project directory, generating a contextual file tree, and optionally loading agent instructions from configuration files. Each interaction flows through a permission system that can prompt for approval, remember decisions, or operate autonomously in YOLO mode.
 
-### AI Integration
-- **Multiple provider support** - Designed to work with different AI providers (currently Anthropic)
-- **Model selection** - Choose the right model for your task
-- **Configurable behavior** - Experiment with different approaches
+## Core Capabilities
+
+Deputy's functionality centres on four fundamental tools that enable comprehensive project interaction. The file listing tool provides directory traversal with git-aware filtering and recursive exploration. File reading supports selective content extraction with line limiting and offset capabilities, allowing targeted examination of large codebases without overwhelming context windows.
+
+File writing operations include both complete file creation and selective range editing, with built-in diff generation for change visibility. Command execution provides full shell access, enabling build processes, test execution, git operations, and arbitrary system commands within your project context.
+
+The permission system governs all tool usage through three modes: explicit approval for each operation, persistent approval for repeated similar operations, and autonomous execution in YOLO mode. This approach balances safety with efficiency, allowing users to establish trust boundaries appropriate to their workflow.
+
+## Configuration
+
+Deputy searches for agent instruction files in a predetermined hierarchy, checking first for `DEPUTY.md` in your current directory, then `~/.deputy/DEPUTY.md`, followed by `AGENTS.md`, `CLAUDE.md`, and `~/.claude/CLAUDE.md`. These files allow customisation of Deputy's behaviour and integration of project-specific guidance.
+
+The system prompt incorporates comprehensive guidance for creative shell command usage, encouraging efficient information gathering through targeted searches, command composition, and selective file examination rather than wholesale content ingestion.
 
 ## Installation
 
-1. **Clone and install:**
-   ```bash
-   git clone https://github.com/hgrsd/deputy
-   cd deputy
-   cargo install --path .
+Deputy requires Rust and an Anthropic API key. Installation proceeds through Cargo:
 
-   # alternatively, just install without cloning
-   cargo install deputy
-   ```
+```bash
+git clone https://github.com/hgrsd/deputy
+cd deputy
+cargo install --path .
+```
 
-2. **Set up your API key:**
-   ```bash
-   export ANTHROPIC_API_KEY=your_api_key_here
-   ```
-   *(Currently supports Anthropic - more providers planned)*
+Alternatively, install directly from crates.io:
 
-## Getting Started
+```bash
+cargo install deputy
+```
 
-Navigate to any project directory and start Deputy:
+Configure your API key through environment variables:
+
+```bash
+export ANTHROPIC_API_KEY=your_api_key_here
+```
+
+## Usage
+
+Navigate to any project directory and invoke Deputy:
 
 ```bash
 cd your-project
 deputy
 ```
 
-Try asking Deputy to:
-- "Can you explain what this main.rs file does?"
-- "Help me add error handling to this function"
-- "Write a test for this module"
-- "Refactor this code to be more readable"
-
-Type `exit` or press Ctrl-C to quit.
-
-## Usage Options
+The default configuration employs Anthropic's `claude-sonnet-4-20250514` model. Alternative configurations include provider and model specification:
 
 ```bash
-# Basic usage
-deputy
-
-# Specify provider (currently: anthropic)
-deputy --provider anthropic
-
-# Specify model (default: claude-sonnet-4-20250514)
-deputy --model claude-opus-4-20250514
-
-# Combine options
 deputy --provider anthropic --model claude-opus-4-20250514
-
-# Use short flags
 deputy -p anthropic -m claude-opus-4-20250514
-
-# Use YOLO mode (dangerous, you know why)
-deputy --yolo
-
-# See all options
-deputy --help
 ```
 
-## Current Status
+YOLO mode eliminates permission prompts, executing all tool calls automatically:
 
-As an experimental project, Deputy is actively being developed. Current areas of focus include:
-- Adding support for more AI providers
-- Better error handling and recovery
-- Enhanced configuration options
+```bash
+deputy --yolo
+```
+
+This mode significantly accelerates interaction but requires careful consideration of the security implications.
+
+Debug mode provides detailed logging of tool calls and results:
+
+```bash
+DEPUTY_DEBUG=true deputy
+```
+
+## Session Management
+
+Deputy maintains conversation history and permission state throughout each session. The permission system learns from your approval patterns, offering to remember decisions for similar operations. This creates an adaptive workflow where frequently-used operations become frictionless whilst maintaining oversight for novel or potentially destructive actions.
+
+Sessions terminate through the `exit` command or interrupt signal. Each session operates independently, with no persistence between invocations beyond the static configuration files.
 
 ## Contributing
 
-Contributions are welcome! Whether you're interested in adding new AI providers, improving the conversation flow, better error handling, performance optimizations, or documentation improvements, feel free to open issues or submit pull requests.
+Yes please! Please feel free to open issues, fork this repo, or open PRs. All contributions and collaborations are welcome.
 
 ## License
 
