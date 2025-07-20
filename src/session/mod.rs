@@ -107,25 +107,24 @@ impl<'a, M: Model> Session<'a, M> {
                 }
             }
 
-            // Display and add non-tool messages to history first
             for m in other_messages {
                 self.message_history.push(m.clone());
                 self.display_message(&m);
             }
 
-            // Process all tool calls if any exist
             if !tool_calls.is_empty() {
                 turn_finished = false;
-                let tool_results = self.process_tool_calls(tool_calls, debug_mode).await?;
+                let mut tool_results = self.process_tool_calls(tool_calls, debug_mode).await?;
+
+                let (last_call, last_result) = tool_results.pop().unwrap();
 
                 for (call, result) in &tool_results {
                     self.message_history.push(call.clone());
                     self.message_history.push(result.clone());
                 }
 
-                if let Some((_, last_result)) = tool_results.last() {
-                    current_message = last_result.clone();
-                }
+                self.message_history.push(last_call.clone());
+                current_message = last_result;
             }
         }
         Ok(())
@@ -144,7 +143,7 @@ impl<'a, M: Model> Session<'a, M> {
                 id,
                 tool_name,
                 arguments,
-            } = tool_call
+            } = tool_call.clone()
             {
                 if user_denied_tool {
                     tool_results.push((tool_call.clone(), Message::ToolResult {
