@@ -18,11 +18,11 @@ mod tools;
 #[command(about = "An agentic CLI assistant")]
 #[command(version)]
 struct Args {
-    /// Provider to use
+    /// Provider to use (anthropic or openai)
     #[arg(short, long, value_enum, default_value_t = Provider::Anthropic)]
     provider: Provider,
 
-    /// Model to use (provider-specific)
+    /// Model to use (provider-specific, e.g. claude-sonnet-4-20250514 for Anthropic, gpt-4o for OpenAI)
     #[arg(short, long, default_value = "claude-sonnet-4-20250514")]
     model: String,
 

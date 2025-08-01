@@ -10,7 +10,7 @@ This project represents active research into how agentic systems can meaningfull
 
 ## Architecture
 
-Deputy employs a modular architecture built around three core concepts: providers, tools, and sessions. Providers abstract different AI services (currently Anthropic's Claude), tools define the operations Deputy can perform within your environment, and sessions manage the conversation state and permission model.
+Deputy employs a modular architecture built around three core concepts: providers, tools, and sessions. Providers abstract different AI services (currently Anthropic's Claude and OpenAI), tools define the operations Deputy can perform within your environment, and sessions manage the conversation state and permission model.
 
 The system initialises by scanning your project directory, generating a contextual file tree, and optionally loading agent instructions from configuration files. Each interaction flows through a permission system that can prompt for approval, remember decisions, or operate autonomously in YOLO mode.
 
@@ -30,7 +30,7 @@ The system prompt incorporates comprehensive guidance for creative shell command
 
 ## Installation
 
-Deputy requires Rust and an Anthropic API key. Installation proceeds through Cargo:
+Deputy requires Rust and an API key for your chosen provider (Anthropic or OpenAI). Installation proceeds through Cargo:
 
 ```bash
 git clone https://github.com/hgrsd/deputy
@@ -47,7 +47,11 @@ cargo install deputy
 Configure your API key through environment variables:
 
 ```bash
-export ANTHROPIC_API_KEY=your_api_key_here
+# For Anthropic
+export ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# For OpenAI
+export OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ## Usage
@@ -62,8 +66,13 @@ deputy
 The default configuration employs Anthropic's `claude-sonnet-4-20250514` model. Alternative configurations include provider and model specification:
 
 ```bash
+# Using Anthropic
 deputy --provider anthropic --model claude-opus-4-20250514
 deputy -p anthropic -m claude-opus-4-20250514
+
+# Using OpenAI
+deputy --provider openai --model gpt-4o
+deputy -p openai -m gpt-4o-mini
 ```
 
 YOLO mode eliminates permission prompts, executing all tool calls automatically:
