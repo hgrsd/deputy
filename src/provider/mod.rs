@@ -1,4 +1,5 @@
 pub mod anthropic;
+pub mod openai;
 pub mod session_factory;
 
 use clap::ValueEnum;
@@ -6,12 +7,14 @@ use clap::ValueEnum;
 #[derive(Debug, Clone, ValueEnum)]
 pub enum Provider {
     Anthropic,
+    OpenAI,
 }
 
 impl std::fmt::Display for Provider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Provider::Anthropic => write!(f, "anthropic"),
+            Provider::OpenAI => write!(f, "openai"),
         }
     }
 }
@@ -20,6 +23,7 @@ impl Provider {
     pub fn required_env_vars(&self) -> Vec<&'static str> {
         match self {
             Provider::Anthropic => vec!["ANTHROPIC_API_KEY"],
+            Provider::OpenAI => vec!["OPENAI_API_KEY"],
         }
     }
 
