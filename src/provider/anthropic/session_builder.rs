@@ -70,6 +70,7 @@ impl<'a> AnthropicSessionBuilder<'a> {
             context.max_tokens,
             Some(context.system_prompt()),
             anthropic_tools,
+            context.base_url_override.clone()
         );
 
         Ok(Session::new(anthropic_model, self.tools, io, context))

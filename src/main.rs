@@ -29,6 +29,10 @@ struct Args {
     /// Enable yolo mode - run all tool calls without asking for permission (dangerous!)
     #[arg(long)]
     yolo: bool,
+
+    /// Override API base url; this is useful if you want to point deputy at a local or third-party OpenAI or Anthropic compatible API.
+    #[arg(short, long)]
+    base_url: Option<String>
 }
 
 #[tokio::main]
@@ -36,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // Create context with all configuration
-    let context = Context::new(args.provider.clone(), args.model, args.yolo)?;
+    let context = Context::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
 
     let tools = ToolRegistry::with_default_tools().into_tools();
     let mut io: Box<dyn IO> = Box::new(TerminalIO::new()?);
@@ -50,10 +54,11 @@ async fn main() -> anyhow::Result<()> {
 
     io.show_message(
         &format!(
-            "Deputy ready! Using provider: {}, model: {}{}",
+            "Deputy ready! Using provider: {}, model: {}{}{}",
             context.provider, 
             context.model_name,
-            if context.yolo_mode { " (YOLO MODE)" } else { "" }
+            if context.yolo_mode { " (YOLO MODE)" } else { "" },
+            if let Some(ref url) = context.base_url_override { format!("base url: {}", url)} else { String::from("") }
         ),
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );

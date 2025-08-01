@@ -25,8 +25,9 @@ impl OpenAIModel {
         model_name: String,
         max_tokens: Option<u32>,
         tools: Option<Vec<Tool>>,
+        base_url: Option<String>,
     ) -> Self {
-        let base_url = String::from("https://api.openai.com/v1");
+        let base_url = base_url.unwrap_or(String::from("https://api.openai.com/v1"));
         let client = reqwest::Client::new();
         Self {
             api_key,

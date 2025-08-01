@@ -27,8 +27,9 @@ impl AnthropicModel {
         max_tokens: u32,
         system_prompt: Option<String>,
         tools: Option<Vec<Tool>>,
+        base_url: Option<String>
     ) -> Self {
-        let base_url = String::from("https://api.anthropic.com/v1");
+        let base_url = base_url.unwrap_or(String::from("https://api.anthropic.com/v1"));
         let client = reqwest::Client::new();
         Self {
             api_key,

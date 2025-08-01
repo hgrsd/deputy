@@ -10,6 +10,7 @@ pub struct Context {
     // Configuration fields
     pub provider: Provider,
     pub model_name: String,
+    pub base_url_override: Option<String>,
     pub yolo_mode: bool,
     pub max_tokens: u32,
 }
@@ -67,7 +68,7 @@ impl Context {
         }
     }
 
-    pub fn new(provider: Provider, model_name: String, yolo_mode: bool) -> anyhow::Result<Self> {
+    pub fn new(provider: Provider, model_name: String, yolo_mode: bool, base_url_override: Option<String>) -> anyhow::Result<Self> {
         // Validate provider configuration
         if let Err(error) = provider.validate_configuration() {
             return Err(anyhow::anyhow!("Provider configuration error: {}", error));
@@ -98,6 +99,7 @@ impl Context {
             model_name,
             yolo_mode,
             max_tokens: 5_000, // Default value
+            base_url_override
         })
     }
 

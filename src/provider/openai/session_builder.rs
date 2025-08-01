@@ -72,6 +72,7 @@ impl<'a> OpenAISessionBuilder<'a> {
             context.model_name.clone(),
             Some(context.max_tokens),
             openai_tools,
+            context.base_url_override.clone()
         );
 
         Ok(Session::new(openai_model, self.tools, io, context))
