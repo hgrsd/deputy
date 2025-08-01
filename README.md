@@ -75,6 +75,29 @@ deputy --provider openai --model gpt-4o
 deputy -p openai -m gpt-4o-mini
 ```
 
+### Custom API Endpoints
+
+Deputy supports overriding the default API base URLs, enabling integration with local or third-party OpenAI/Anthropic compatible APIs:
+
+```bash
+# Using a local OpenAI-compatible API
+deputy --provider openai --base-url http://localhost:8080/v1
+
+# Using a third-party Anthropic-compatible service
+deputy --provider anthropic --base-url https://custom-api.example.com/v1
+
+# Short form
+deputy -p openai -b http://localhost:8080/v1
+```
+
+This feature is particularly useful for:
+- Local development with self-hosted models
+- Integration with custom API gateways
+- Testing against alternative service providers
+- Corporate environments with proxied API access
+
+### YOLO Mode
+
 YOLO mode eliminates permission prompts, executing all tool calls automatically:
 
 ```bash
@@ -82,6 +105,8 @@ deputy --yolo
 ```
 
 This mode significantly accelerates interaction but requires careful consideration of the security implications.
+
+### Debug Mode
 
 Debug mode provides detailed logging of tool calls and results:
 
