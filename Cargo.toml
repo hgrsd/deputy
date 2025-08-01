@@ -1,8 +1,8 @@
 [package]
 name = "deputy"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
-description = "Agentic CLI tool"
+description = "An experimental terminal-based AI coding assistant that integrates directly with your filesystem and shell. Deputy leverages agentic LLM systems to read code, manipulate files, execute shell commands, and navigate projects. It provides a modular, permissioned workflow for safe, contextual, and automated developer assistance, supporting both OpenAI and Anthropic backends."
 license = "MIT"
 
 [dependencies]
