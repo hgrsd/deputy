@@ -5,6 +5,7 @@ use crate::{
     tools::ToolRegistry,
 };
 use clap::Parser;
+use std::path::PathBuf;
 
 mod context;
 mod core;
@@ -32,7 +33,11 @@ struct Args {
 
     /// Override API base url; this is useful if you want to point deputy at a local or third-party OpenAI or Anthropic compatible API.
     #[arg(short, long)]
-    base_url: Option<String>
+    base_url: Option<String>,
+
+    /// Custom configuration file path (when provided, only this file will be read instead of the default priority order)
+    #[arg(short, long)]
+    config: Option<PathBuf>
 }
 
 #[tokio::main]
@@ -41,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create context with all configuration
     let model_config = ModelConfig::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
-    let session_config = SessionConfig::from_env()?;
+    let session_config = SessionConfig::from_env(args.config)?;
     let context = Context::new(model_config, session_config);
 
     let tools = ToolRegistry::with_default_tools().into_tools();

@@ -44,6 +44,7 @@ That's it. Deputy will scan your project and you can start chatting.
 deputy --provider openai --model gpt-4o    # Use OpenAI instead
 deputy --yolo                              # Skip permission prompts
 deputy --base-url http://localhost:8080/v1 # Custom API endpoint
+deputy --config ./my-config.md             # Use custom configuration file
 ```
 
 ## Permissions
@@ -55,7 +56,15 @@ Deputy asks before doing potentially destructive things. You can:
 
 ## Configuration
 
-Deputy loads configuration files in priority order (first found wins):
+You can specify a custom configuration file using the `--config` option:
+
+```bash
+deputy --config ./path/to/my-config.md
+```
+
+When using `--config`, Deputy will read ONLY that file and ignore the default search locations.
+
+If no custom config is specified, Deputy loads configuration files in priority order (first found wins):
 
 1. `DEPUTY.md` in your project root
 2. `~/.deputy/DEPUTY.md` for global config

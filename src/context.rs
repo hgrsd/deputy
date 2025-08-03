@@ -46,29 +46,42 @@ impl SessionConfig {
     /// Creates a SessionConfig from the current environment.
     /// 
     /// Detects the current working directory, generates an initial file tree,
-    /// and searches for agent instruction files in this priority order:
+    /// and searches for agent instruction files. If a custom config path is provided,
+    /// only that file will be read. Otherwise, searches in this priority order:
     /// 1. `DEPUTY.md` in current directory
     /// 2. `~/.deputy/DEPUTY.md` 
     /// 3. `AGENTS.md` in current directory
     /// 4. `CLAUDE.md` in current directory
     /// 5. `~/.claude/CLAUDE.md`
-    pub fn from_env() -> anyhow::Result<Self> {
+    pub fn from_env(custom_config_path: Option<PathBuf>) -> anyhow::Result<Self> {
         let cwd = std::env::current_dir()
             .map_err(|e| anyhow::anyhow!("Unable to detect current working directory: {}", e))?;
 
         let initial_file_tree = Self::generate_file_tree(&cwd);
 
-        let instruction_paths_priority_order = [
-            cwd.join("DEPUTY.md"),
-            PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
-            cwd.join("AGENTS.md"),
-            cwd.join("CLAUDE.md"),
-            PathBuf::from_str("~/.claude/CLAUDE.md").unwrap()
-        ];
-        let instructions = instruction_paths_priority_order
-            .iter()
-            .find(|path| path.exists())
-            .and_then(|path| std::fs::read_to_string(path).ok());
+        let instructions = if let Some(custom_path) = custom_config_path {
+            // Use custom config path if provided
+            if custom_path.exists() {
+                std::fs::read_to_string(&custom_path)
+                    .map_err(|e| anyhow::anyhow!("Failed to read custom config file '{}': {}", custom_path.display(), e))?
+                    .into()
+            } else {
+                return Err(anyhow::anyhow!("Custom config file '{}' does not exist", custom_path.display()));
+            }
+        } else {
+            // Use default priority order
+            let instruction_paths_priority_order = [
+                cwd.join("DEPUTY.md"),
+                PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
+                cwd.join("AGENTS.md"),
+                cwd.join("CLAUDE.md"),
+                PathBuf::from_str("~/.claude/CLAUDE.md").unwrap()
+            ];
+            instruction_paths_priority_order
+                .iter()
+                .find(|path| path.exists())
+                .and_then(|path| std::fs::read_to_string(path).ok())
+        };
 
         Ok(Self {
             agent_instructions: instructions,
