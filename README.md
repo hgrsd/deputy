@@ -55,7 +55,15 @@ Deputy asks before doing potentially destructive things. You can:
 
 ## Configuration
 
-Drop a `DEPUTY.md` file in your project root to give Deputy project-specific instructions. It'll also check `~/.deputy/DEPUTY.md` for global config.
+Deputy loads configuration files in priority order (first found wins):
+
+1. `DEPUTY.md` in your project root
+2. `~/.deputy/DEPUTY.md` for global config
+3. `AGENTS.md` in your project root
+4. `CLAUDE.md` in your project root  
+5. `~/.claude/CLAUDE.md` for global config
+
+These files contain instructions that Deputy will follow during your session.
 
 ## Contributing
 
