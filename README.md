@@ -41,7 +41,7 @@ That's it. Deputy will scan your project and you can start chatting.
 ### Options
 
 ```bash
-deputy --provider openai --model gpt-4o    # Use OpenAI instead
+deputy --provider open-ai --model gpt-4o    # Use OpenAI instead
 deputy --yolo                              # Skip permission prompts
 deputy --base-url http://localhost:8080/v1 # Custom API endpoint
 deputy --config ./my-config.md             # Use custom configuration file
