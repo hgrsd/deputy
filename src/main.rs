@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 mod context;
 mod core;
+mod error;
 mod io;
 mod provider;
 mod session;

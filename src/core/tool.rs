@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::error::Result;
 use crate::io::IO;
 
 pub trait Tool {
@@ -11,7 +12,7 @@ pub trait Tool {
         &'a self,
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<String>> + Send + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = Result<String>> + Send + 'a>>;
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>);
-    fn permission_id(&self, args: serde_json::Value) -> String;
+    fn permission_id(&self, args: serde_json::Value) -> Result<String>;
 }

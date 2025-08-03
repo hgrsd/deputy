@@ -3,9 +3,10 @@ use std::time::Duration;
 use reqwest::{Response, StatusCode};
 
 use crate::{
-    core::{Message, Model, ModelError},
+    core::{Message, Model},
+    error::{ErrorResponse, ModelError, Result},
     provider::anthropic::types::{
-        ContentBlock, CreateMessageRequest, CreateMessageResponse, ErrorResponse,
+        ContentBlock, CreateMessageRequest, CreateMessageResponse,
         Message as AnthropicMessage, Tool,
     },
 };
@@ -46,7 +47,7 @@ impl AnthropicModel {
         &self,
         api_url: &str,
         request: &CreateMessageRequest,
-    ) -> Result<Response, ModelError> {
+    ) -> Result<Response> {
         const MAX_RETRIES: u32 = 3;
         const BASE_DELAY_SECS: u64 = 6;
 
@@ -59,13 +60,17 @@ impl AnthropicModel {
                 .header("anthropic-version", "2023-06-01")
                 .header("x-api-key", self.api_key.clone())
                 .build()
-                .map_err(|e| ModelError::RequestError(e.to_string()))?;
+                .map_err(|e| ModelError::Network { 
+                    reason: format!("anthropic: {}", e)
+                })?;
 
             let response = self
                 .client
                 .execute(request)
                 .await
-                .map_err(|e| ModelError::ApiError(format!("{}", e)))?;
+                .map_err(|e| ModelError::Network {
+                    reason: format!("anthropic: {}", e)
+                })?;
 
             if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_RETRIES {
                 let delay_secs = BASE_DELAY_SECS * 2_u64.pow(attempt);
@@ -128,7 +133,7 @@ impl Model for AnthropicModel {
         &self,
         message: Message,
         message_history: Vec<Message>,
-    ) -> Result<Vec<Message>, ModelError> {
+    ) -> Result<Vec<Message>> {
         let all_messages: Vec<AnthropicMessage> = message_history
             .into_iter()
             .chain(std::iter::once(message))
@@ -151,17 +156,38 @@ impl Model for AnthropicModel {
         let api_url = format!("{}/messages", self.base_url);
         let result = self.post_with_retry(&api_url, &request).await?;
         if !result.status().is_success() {
+            let status_code = result.status().as_u16();
+            
+            if status_code == 401 {
+                return Err(ModelError::Authentication {
+                    reason: "provider: anthropic".to_string()
+                }.into());
+            }
+            
+            if status_code == 429 {
+                return Err(ModelError::RateLimit {
+                    reason: "provider: anthropic".to_string(),
+                    retry_after_seconds: None
+                }.into());
+            }
+            
             let error = result
                 .json::<ErrorResponse>()
                 .await
-                .map_err(|_| ModelError::ApiError("Unknown API error occurred".to_owned()))?;
-            return Err(ModelError::ApiError(error.error.message));
+                .map_err(|_| ModelError::Request {
+                    reason: "invalid response from anthropic: Failed to parse error response".to_string()
+                })?;
+            return Err(ModelError::Request {
+                reason: format!("provider: anthropic, status: {}, message: {}", status_code, error.error.message)
+            }.into());
         }
 
         let body = result
             .json::<CreateMessageResponse>()
             .await
-            .map_err(|e| ModelError::ApiError(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| ModelError::Request {
+                reason: format!("invalid response from anthropic: Failed to parse response: {}", e)
+            })?;
 
         let mut result = vec![];
         for block in body.content {
@@ -179,9 +205,9 @@ impl Model for AnthropicModel {
                     result.push(message);
                 }
                 _ => {
-                    return Err(ModelError::ApiError(
-                        "Only Text and ToolUse blocks are supported".to_owned(),
-                    ));
+                    return Err(ModelError::Request {
+                        reason: "invalid response from anthropic: Only Text and ToolUse blocks are supported".to_string()
+                    }.into());
                 }
             }
         }

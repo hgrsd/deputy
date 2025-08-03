@@ -3,9 +3,10 @@ use std::time::Duration;
 use reqwest::{Response, StatusCode};
 
 use crate::{
-    core::{Message, Model, ModelError},
+    core::{Message, Model},
+    error::{ErrorResponse, ModelError, Result},
     provider::openai::types::{
-        ChatCompletionRequest, ChatCompletionResponse, ErrorResponse, Message as OpenAIMessage,
+        ChatCompletionRequest, ChatCompletionResponse, Message as OpenAIMessage,
         Tool, ToolCall, FunctionCall, Role,
     },
 };
@@ -43,7 +44,7 @@ impl OpenAIModel {
         &self,
         api_url: &str,
         request: &ChatCompletionRequest,
-    ) -> Result<Response, ModelError> {
+    ) -> Result<Response> {
         const MAX_RETRIES: u32 = 3;
         const BASE_DELAY_SECS: u64 = 6;
 
@@ -54,13 +55,17 @@ impl OpenAIModel {
                 .json(request)
                 .header("Authorization", format!("Bearer {}", self.api_key))
                 .build()
-                .map_err(|e| ModelError::RequestError(e.to_string()))?;
+                .map_err(|e| ModelError::Network {
+                    reason: format!("openai: {}", e)
+                })?;
 
             let response = self
                 .client
                 .execute(http_request)
                 .await
-                .map_err(|e| ModelError::ApiError(format!("{}", e)))?;
+                .map_err(|e| ModelError::Network {
+                    reason: format!("openai: {}", e)
+                })?;
 
             if response.status() == StatusCode::TOO_MANY_REQUESTS && attempt < MAX_RETRIES {
                 let delay_secs = BASE_DELAY_SECS * 2_u64.pow(attempt);
@@ -126,7 +131,7 @@ impl Model for OpenAIModel {
         &self,
         message: Message,
         message_history: Vec<Message>,
-    ) -> Result<Vec<Message>, ModelError> {
+    ) -> Result<Vec<Message>> {
         let all_messages: Vec<OpenAIMessage> = message_history
             .into_iter()
             .chain(std::iter::once(message))
@@ -149,17 +154,38 @@ impl Model for OpenAIModel {
         let result = self.post_with_retry(&api_url, &request).await?;
         
         if !result.status().is_success() {
+            let status_code = result.status().as_u16();
+            
+            if status_code == 401 {
+                return Err(ModelError::Authentication {
+                    reason: "provider: openai".to_string()
+                }.into());
+            }
+            
+            if status_code == 429 {
+                return Err(ModelError::RateLimit {
+                    reason: "provider: openai".to_string(),
+                    retry_after_seconds: None
+                }.into());
+            }
+            
             let error = result
                 .json::<ErrorResponse>()
                 .await
-                .map_err(|_| ModelError::ApiError("Unknown API error occurred".to_owned()))?;
-            return Err(ModelError::ApiError(error.error.message));
+                .map_err(|_| ModelError::Request {
+                    reason: "invalid response from openai: Failed to parse error response".to_string()
+                })?;
+            return Err(ModelError::Request {
+                reason: format!("provider: openai, status: {}, message: {}", status_code, error.error.message)
+            }.into());
         }
 
         let body = result
             .json::<ChatCompletionResponse>()
             .await
-            .map_err(|e| ModelError::ApiError(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| ModelError::Request {
+                reason: format!("invalid response from openai: Failed to parse response: {}", e)
+            })?;
 
         let mut result = vec![];
         
@@ -173,7 +199,9 @@ impl Model for OpenAIModel {
             if let Some(tool_calls) = &message.tool_calls {
                 for tool_call in tool_calls {
                     let arguments: serde_json::Value = serde_json::from_str(&tool_call.function.arguments)
-                        .map_err(|e| ModelError::ApiError(format!("Failed to parse tool arguments: {}", e)))?;
+                        .map_err(|e| ModelError::Request {
+                            reason: format!("invalid response from openai: Failed to parse tool arguments: {}", e)
+                        })?;
                     
                     result.push(Message::ToolCall {
                         id: Some(tool_call.id.clone()),

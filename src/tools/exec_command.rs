@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::process::Command;
 
-use crate::{core::Tool, io::IO};
+use crate::{core::Tool, error::{ToolError, Result}, io::IO};
 
 pub struct ExecCommandTool;
 
@@ -33,32 +33,46 @@ impl Tool for ExecCommandTool {
     }
 
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
-        let input: Input = serde_json::from_value(args).expect("unable to parse argument");
+        let input: Input = serde_json::from_value(args).unwrap_or(Input { command: "<invalid command>".to_string() });
         io.show_message(
             "deputy wants to execute the following command",
             &input.command,
         );
     }
 
-    fn permission_id(&self, args: serde_json::Value) -> String {
-        let input: Input = serde_json::from_value(args).expect("unable to parse argument");
-        input.command.split_whitespace().take(1).collect()
+    fn permission_id(&self, args: serde_json::Value) -> Result<String> {
+        let input: Input = serde_json::from_value(args)
+            .map_err(|e| ToolError::InvalidArguments {
+                reason: format!("exec_command: {}", e)
+            })?;
+        Ok(input.command.split_whitespace().take(1).collect())
     }
 
     fn call<'a>(
         &'a self,
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
-            let input: Input = serde_json::from_value(args)?;
+            let input: Input = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArguments {
+                    reason: format!("exec_command: {}", e)
+                })?;
 
             let output = Command::new("sh")
                 .arg("-c")
                 .arg(&input.command)
                 .output()
-                .map_err(|e| anyhow::anyhow!("Failed to execute command: {}", e))?;
+                .map_err(|e| ToolError::ExecutionFailed {
+                    reason: format!("exec_command: {}", e)
+                })?;
+
+            if !output.status.success() {
+                return Err(ToolError::ExecutionFailed {
+                    reason: format!("command '{}' failed with exit code {}: {}", input.command, output.status.code().unwrap_or(-1), String::from_utf8_lossy(&output.stderr))
+                }.into());
+            }
 
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();

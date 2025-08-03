@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     context::Context,
     core::Tool,
+    error::{Result, SessionError},
     io::IO,
     provider::openai::{openai_model::OpenAIModel, types::Tool as OpenAITool, types::Function},
     session::Session,
@@ -39,15 +40,14 @@ impl<'a> OpenAISessionBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> anyhow::Result<Session<'a, OpenAIModel>> {
+    pub fn build(self) -> Result<Session<'a, OpenAIModel>> {
         let context = self
             .context
-            .ok_or_else(|| anyhow::anyhow!("Context is required"))?;
-        let io = self.io.ok_or_else(|| anyhow::anyhow!("IO is required"))?;
+            .ok_or_else(|| SessionError::Processing { reason: "Context is required".to_string() })?;
+        let io = self.io.ok_or_else(|| SessionError::Processing { reason: "IO is required".to_string() })?;
 
         // Get API key from environment
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .map_err(|_| anyhow::anyhow!("OPENAI_API_KEY must be set"))?;
+        let api_key = std::env::var("OPENAI_API_KEY")?;
 
         let openai_tools = if self.tools.is_empty() {
             None

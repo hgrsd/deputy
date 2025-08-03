@@ -128,18 +128,3 @@ pub struct ChatCompletionResponse {
     pub usage: Usage,
 }
 
-/// Error details from the API
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ApiError {
-    pub message: String,
-    #[serde(rename = "type")]
-    pub error_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub code: Option<String>,
-}
-
-/// Wrapper for API error responses
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ErrorResponse {
-    pub error: ApiError,
-}

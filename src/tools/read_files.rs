@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::{core::Tool, io::IO};
+use crate::{core::Tool, error::{ToolError, Result}, io::IO};
 
 pub struct ReadFilesTool;
 
@@ -13,9 +13,11 @@ pub struct Input {
     offset: Option<usize>,
 }
 
-fn get_paths(input: &Input) -> Vec<PathBuf> {
-    let cwd = std::env::current_dir().expect("Failed to get current working directory");
-    input.paths.iter().map(|p| cwd.join(p)).collect()
+fn get_paths(input: &Input) -> Result<Vec<PathBuf>> {
+    let cwd = std::env::current_dir().map_err(|e| ToolError::ExecutionFailed {
+        reason: format!("read_files: Failed to get current working directory: {}", e)
+    })?;
+    Ok(input.paths.iter().map(|p| cwd.join(p)).collect())
 }
 
 impl Tool for ReadFilesTool {
@@ -33,8 +35,8 @@ impl Tool for ReadFilesTool {
     }
 
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
-        let input: Input = serde_json::from_value(args).expect("unable to parse input");
-        let display_paths: Vec<String> = get_paths(&input)
+        let input: Input = serde_json::from_value(args).unwrap_or(Input { paths: vec!["<invalid>".to_string()], limit: None, offset: None });
+        let display_paths: Vec<String> = get_paths(&input).unwrap_or_default()
             .iter()
             .map(|p| p.to_string_lossy())
             .map(|s| s.to_string())
@@ -49,8 +51,8 @@ impl Tool for ReadFilesTool {
         );
     }
 
-    fn permission_id(&self, _args: serde_json::Value) -> String {
-        String::from("read_files")
+    fn permission_id(&self, _args: serde_json::Value) -> Result<String> {
+        Ok(String::from("read_files"))
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -83,12 +85,15 @@ impl Tool for ReadFilesTool {
         &'a self,
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
-            let input: Input = serde_json::from_value(args)?;
+            let input: Input = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArguments {
+                    reason: format!("read_files: {}", e)
+                })?;
 
-            let paths = get_paths(&input);
+            let paths = get_paths(&input)?;
             let mut output = String::new();
             for path in &paths {
                 match std::fs::read_to_string(path) {

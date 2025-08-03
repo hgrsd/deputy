@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use similar::{ChangeTag, TextDiff};
 
-use crate::{core::Tool, io::IO};
+use crate::{core::Tool, error::{ToolError, Result}, io::IO};
 
 pub struct WriteFileTool;
 
@@ -20,9 +20,11 @@ struct Input {
     range: Option<Range>,
 }
 
-fn get_path(input: &Input) -> PathBuf {
-    let cwd = std::env::current_dir().expect("Failed to get current working directory");
-    cwd.join(&input.path)
+fn get_path(input: &Input) -> Result<PathBuf> {
+    let cwd = std::env::current_dir().map_err(|e| ToolError::ExecutionFailed {
+        reason: format!("write_file: Failed to get current working directory: {}", e)
+    })?;
+    Ok(cwd.join(&input.path))
 }
 
 fn diff(old_content: &str, new_content: &str) -> String {
@@ -159,12 +161,15 @@ impl Tool for WriteFileTool {
         &'a self,
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
-            let input: Input = serde_json::from_value(args)?;
+            let input: Input = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArguments {
+                    reason: format!("write_file: {}", e)
+                })?;
 
-            let path = get_path(&input);
+            let path = get_path(&input)?;
             let current_file = std::fs::read_to_string(&path).unwrap_or_default();
 
             let new_content = if let Some(range) = input.range {
@@ -178,14 +183,16 @@ impl Tool for WriteFileTool {
             io.show_message(&format!("deputy edited {}", path.display()), &short_diff);
 
             std::fs::write(&path, &new_content)
-                .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
+                .map_err(|e| ToolError::ExecutionFailed {
+                    reason: format!("write_file: Failed to write file: {}", e)
+                })?;
             Ok("File written successfully".to_owned())
         })
     }
 
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
-        let input: Input = serde_json::from_value(args).expect("unable to parse input");
-        let path = get_path(&input);
+        let input: Input = serde_json::from_value(args).unwrap_or(Input { path: "<invalid>".to_string(), content: String::new(), range: None });
+        let path = get_path(&input).unwrap_or_else(|_| PathBuf::from("<invalid>"));
         let current_file = std::fs::read_to_string(&path).unwrap_or_default();
         let new_file = if let Some(range) = input.range {
             replace_range(&current_file, &range, &input.content)
@@ -199,7 +206,7 @@ impl Tool for WriteFileTool {
         );
     }
 
-    fn permission_id(&self, _args: serde_json::Value) -> String {
-        String::from("write_file")
+    fn permission_id(&self, _args: serde_json::Value) -> Result<String> {
+        Ok(String::from("write_file"))
     }
 }

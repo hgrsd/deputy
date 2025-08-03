@@ -2,7 +2,7 @@ use ignore::gitignore::GitignoreBuilder;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
-use crate::{core::Tool, io::IO};
+use crate::{core::Tool, error::{ToolError, Result}, io::IO};
 
 pub struct ListFilesTool;
 
@@ -15,12 +15,14 @@ pub struct Input {
     include_hidden: bool,
 }
 
-fn build_path(input: &Input) -> PathBuf {
-    let cwd = std::env::current_dir().expect("Failed to get current working directory");
+fn build_path(input: &Input) -> Result<PathBuf> {
+    let cwd = std::env::current_dir().map_err(|e| ToolError::ExecutionFailed {
+        reason: format!("list_files_tool: Failed to get current working directory: {}", e)
+    })?;
     if input.path.is_empty() {
-        cwd
+        Ok(cwd)
     } else {
-        cwd.join(&input.path)
+        Ok(cwd.join(&input.path))
     }
 }
 
@@ -55,8 +57,8 @@ impl Tool for ListFilesTool {
     }
 
     fn ask_permission(&self, args: serde_json::Value, io: &mut Box<dyn IO>) {
-        let input: Input = serde_json::from_value(args).expect("unable to parse input");
-        let path = build_path(&input);
+        let input: Input = serde_json::from_value(args).unwrap_or(Input { path: "<invalid>".to_string(), recursive: false, include_hidden: false });
+        let path = build_path(&input).unwrap_or_else(|_| PathBuf::from("<invalid>"));
         io.show_message(
             "Permission request",
             &format!(
@@ -66,29 +68,36 @@ impl Tool for ListFilesTool {
         );
     }
 
-    fn permission_id(&self, _args: serde_json::Value) -> String {
-        String::from("list_files")
+    fn permission_id(&self, _args: serde_json::Value) -> Result<String> {
+        Ok(String::from("list_files"))
     }
 
     fn call<'a>(
         &'a self,
         args: serde_json::Value,
         io: &'a mut Box<dyn IO>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + 'a>>
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String>> + Send + 'a>>
     {
         Box::pin(async move {
-            let input: Input = serde_json::from_value(args)?;
+            let input: Input = serde_json::from_value(args)
+                .map_err(|e| ToolError::InvalidArguments {
+                    reason: format!("list_files_tool: {}", e)
+                })?;
 
-            let path = build_path(&input);
+            let path = build_path(&input)?;
             let gitignore = build_gitignore(&path);
 
             let output = if input.recursive {
                 list_files_recursive(&path, 0, &gitignore, input.include_hidden)
             } else {
                 let mut output = String::new();
-                let entries = std::fs::read_dir(&path).expect("Failed to read directory");
+                let entries = std::fs::read_dir(&path).map_err(|e| ToolError::ExecutionFailed {
+                    reason: format!("list_files_tool: Failed to read directory: {}", e)
+                })?;
                 for entry in entries {
-                    let entry = entry.expect("Failed to read directory entry");
+                    let entry = entry.map_err(|e| ToolError::ExecutionFailed {
+                        reason: format!("list_files_tool: Failed to read directory entry: {}", e)
+                    })?;
                     let entry_path = entry.path();
 
                     if should_include_path(&entry_path, &gitignore, input.include_hidden) {
@@ -119,13 +128,17 @@ fn list_files_recursive(
     if let Ok(entries) = std::fs::read_dir(path) {
         let mut entries: Vec<_> = entries.collect();
         entries.sort_by(|a, b| {
-            let a_path = a.as_ref().unwrap().path();
-            let b_path = b.as_ref().unwrap().path();
-
-            match (a_path.is_dir(), b_path.is_dir()) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a_path.file_name().cmp(&b_path.file_name()),
+            match (a.as_ref(), b.as_ref()) {
+                (Ok(a_entry), Ok(b_entry)) => {
+                    let a_path = a_entry.path();
+                    let b_path = b_entry.path();
+                    match (a_path.is_dir(), b_path.is_dir()) {
+                        (true, false) => std::cmp::Ordering::Less,
+                        (false, true) => std::cmp::Ordering::Greater,
+                        _ => a_path.file_name().cmp(&b_path.file_name()),
+                    }
+                }
+                _ => std::cmp::Ordering::Equal,
             }
         });
 
@@ -178,7 +191,12 @@ fn build_gitignore(path: &Path) -> ignore::gitignore::Gitignore {
 
     builder.build().unwrap_or_else(|e| {
         eprintln!("Warning: Failed to build gitignore matcher: {}", e);
-        GitignoreBuilder::new(path).build().unwrap()
+        // Fallback to empty gitignore on error
+        GitignoreBuilder::new(path).build().unwrap_or_else(|_| {
+            eprintln!("Warning: Failed to create fallback gitignore matcher");
+            // Return a minimal working gitignore that ignores nothing
+            ignore::gitignore::Gitignore::empty()
+        })
     })
 }
 

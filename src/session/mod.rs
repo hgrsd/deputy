@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     context::Context,
     core::{Message, Model, PermissionMode, Tool},
+    error::{SessionError, ToolError, Result},
     io::IO,
 };
 
@@ -32,18 +33,20 @@ impl<'a, M: Model> Session<'a, M> {
         }
     }
 
-    fn prompt_for_permission(&mut self, tool_name: &str, permission_id: &str) -> bool {
+    fn prompt_for_permission(&mut self, tool_name: &str, permission_id: &str) -> Result<bool> {
         let response = self
             .io
             .get_user_input(&format!(
                 "[1: allow, 2: always allow for {}, 3: deny and tell me what to do differently] > ",
                 permission_id,
             ))
-            .expect("Failed to read user input");
+            .map_err(|e| SessionError::UserInput { 
+                reason: format!("Failed to read user input: {}", e) 
+            })?;
 
         if let Some(s) = response {
             match s.as_str() {
-                "1" => true,
+                "1" => Ok(true),
                 "2" => {
                     self.tool_permissions.insert(
                         tool_name.to_string(),
@@ -51,12 +54,12 @@ impl<'a, M: Model> Session<'a, M> {
                             command_id: permission_id.to_string(),
                         },
                     );
-                    true
+                    Ok(true)
                 }
-                _ => false,
+                _ => Ok(false),
             }
         } else {
-            false
+            Ok(false)
         }
     }
 
@@ -68,7 +71,7 @@ impl<'a, M: Model> Session<'a, M> {
         }
     }
 
-    pub async fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> Result<()> {
         while let Some(input) = self.io.get_user_input("> ")? {
             if input.is_empty() {
                 continue;
@@ -83,7 +86,7 @@ impl<'a, M: Model> Session<'a, M> {
         Ok(())
     }
 
-    pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
+    pub async fn send_message(&mut self, message: Message) -> Result<()> {
         let mut current_message = message.clone();
         let debug_mode = std::env::var("DEPUTY_DEBUG").unwrap_or_default() == "true";
         let mut turn_finished = false;
@@ -120,7 +123,8 @@ impl<'a, M: Model> Session<'a, M> {
                     .process_tool_calls(tool_calls, debug_mode, on_rejected)
                     .await?;
 
-                let (last_call, last_result) = tool_results.pop().unwrap();
+                let (last_call, last_result) = tool_results.pop()
+                    .ok_or_else(|| SessionError::Processing { reason: "tool call batch processing failed".to_string() })?;
 
                 for (call, result) in &tool_results {
                     self.message_history.push(call.clone());
@@ -139,7 +143,7 @@ impl<'a, M: Model> Session<'a, M> {
         tool_calls: Vec<Message>,
         debug_mode: bool,
         mut on_rejected: impl FnMut(),
-    ) -> anyhow::Result<Vec<(Message, Message)>> {
+    ) -> Result<Vec<(Message, Message)>> {
         let mut tool_results = Vec::new();
         let mut user_denied_tool = false;
 
@@ -163,7 +167,7 @@ impl<'a, M: Model> Session<'a, M> {
                     let tool = self
                         .tools
                         .get(&tool_name)
-                        .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
+                        .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
 
                     if debug_mode {
                         eprintln!(
@@ -172,7 +176,7 @@ impl<'a, M: Model> Session<'a, M> {
                         );
                     }
 
-                    tool.permission_id(arguments.clone())
+                    tool.permission_id(arguments.clone())?
                 };
 
                 let allow = if self.context.model_config.yolo_mode {
@@ -190,20 +194,22 @@ impl<'a, M: Model> Session<'a, M> {
                     {
                         PermissionMode::Ask => {
                             {
-                                let tool = self.tools.get(&tool_name).unwrap();
+                                let tool = self.tools.get(&tool_name)
+                                    .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
                                 tool.ask_permission(arguments.clone(), self.io);
                             }
-                            self.prompt_for_permission(&tool_name, &permission_id)
+                            self.prompt_for_permission(&tool_name, &permission_id)?
                         }
                         PermissionMode::ApprovedForId { command_id } => {
                             if &permission_id == command_id {
                                 true
                             } else {
                                 {
-                                    let tool = self.tools.get(&tool_name).unwrap();
+                                    let tool = self.tools.get(&tool_name)
+                                        .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
                                     tool.ask_permission(arguments.clone(), self.io);
                                 }
-                                self.prompt_for_permission(&tool_name, &permission_id)
+                                self.prompt_for_permission(&tool_name, &permission_id)?
                             }
                         }
                     }
@@ -221,7 +227,7 @@ impl<'a, M: Model> Session<'a, M> {
                     let tool = self
                         .tools
                         .get(&tool_name)
-                        .ok_or(anyhow::anyhow!("Tool not found: {}", tool_name))?;
+                        .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
 
                     let result = match tool.call(arguments, self.io).await {
                         Ok(output) => {

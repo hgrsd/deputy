@@ -163,16 +163,3 @@ pub struct CreateMessageResponse {
     pub usage: Usage,
 }
 
-/// Error response from the API
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ApiError {
-    #[serde(rename = "type")]
-    pub error_type: String,
-    pub message: String,
-}
-
-/// Wrapper for API error responses
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ErrorResponse {
-    pub error: ApiError,
-}

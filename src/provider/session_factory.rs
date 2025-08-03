@@ -1,8 +1,7 @@
-use anyhow::Result;
-
 use crate::{
     context::Context,
     core::Tool,
+    error::Result,
     io::IO,
     provider::{
         Provider,
@@ -28,7 +27,7 @@ impl SessionFactory {
             builder = builder.tool(tool);
         }
 
-        builder.build()
+        Ok(builder.build()?)
     }
 
     fn build_openai_session<'a>(
@@ -44,7 +43,7 @@ impl SessionFactory {
             builder = builder.tool(tool);
         }
 
-        builder.build()
+        Ok(builder.build()?)
     }
 
     pub fn build_session<'a>(

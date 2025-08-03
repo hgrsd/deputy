@@ -1,7 +1,8 @@
 use ignore::WalkBuilder;
 use std::path::Path;
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 use crate::provider::Provider;
+use crate::error::{ConfigError, Result};
 
 pub struct ModelConfig {
     pub provider: Provider,
@@ -27,10 +28,8 @@ impl ModelConfig {
     /// 
     /// Validates the provider configuration before creating the config.
     /// Sets max_tokens to a default value of 5,000.
-    pub fn new(provider: Provider, model_name: String, yolo_mode: bool, base_url_override: Option<String>) -> anyhow::Result<Self> {
-        if let Err(error) = provider.validate_configuration() {
-            return Err(anyhow::anyhow!("Provider configuration error: {}", error));
-        }
+    pub fn new(provider: Provider, model_name: String, yolo_mode: bool, base_url_override: Option<String>) -> Result<Self> {
+        provider.validate_configuration()?;
 
         Ok(Self {
             provider,
@@ -53,9 +52,11 @@ impl SessionConfig {
     /// 3. `AGENTS.md` in current directory
     /// 4. `CLAUDE.md` in current directory
     /// 5. `~/.claude/CLAUDE.md`
-    pub fn from_env(custom_config_path: Option<PathBuf>) -> anyhow::Result<Self> {
+    pub fn from_env(custom_config_path: Option<PathBuf>) -> Result<Self> {
         let cwd = std::env::current_dir()
-            .map_err(|e| anyhow::anyhow!("Unable to detect current working directory: {}", e))?;
+            .map_err(|e| ConfigError::Invalid { 
+                reason: format!("configuration file: current directory: {}", e)
+            })?;
 
         let initial_file_tree = Self::generate_file_tree(&cwd);
 
@@ -63,19 +64,35 @@ impl SessionConfig {
             // Use custom config path if provided
             if custom_path.exists() {
                 std::fs::read_to_string(&custom_path)
-                    .map_err(|e| anyhow::anyhow!("Failed to read custom config file '{}': {}", custom_path.display(), e))?
+                    .map_err(|e| ConfigError::ReadFailed {
+                        reason: format!("configuration file {}: {}", custom_path.display(), e)
+                    })?
                     .into()
             } else {
-                return Err(anyhow::anyhow!("Custom config file '{}' does not exist", custom_path.display()));
+                return Err(ConfigError::Invalid {
+                    reason: format!("configuration file: {}", custom_path.display())
+                }.into());
             }
         } else {
             // Use default priority order
+            let home_deputy_path = dirs::home_dir()
+                .ok_or_else(|| ConfigError::Invalid {
+                    reason: "configuration file: ~/.deputy/DEPUTY.md".to_string()
+                })?
+                .join(".deputy/DEPUTY.md");
+            
+            let home_claude_path = dirs::home_dir()
+                .ok_or_else(|| ConfigError::Invalid {
+                    reason: "configuration file: ~/.claude/CLAUDE.md".to_string()
+                })?
+                .join(".claude/CLAUDE.md");
+            
             let instruction_paths_priority_order = [
                 cwd.join("DEPUTY.md"),
-                PathBuf::from_str("~/.deputy/DEPUTY.md").unwrap(),
+                home_deputy_path,
                 cwd.join("AGENTS.md"),
                 cwd.join("CLAUDE.md"),
-                PathBuf::from_str("~/.claude/CLAUDE.md").unwrap()
+                home_claude_path
             ];
             instruction_paths_priority_order
                 .iter()

@@ -14,27 +14,13 @@ pub enum Message {
     },
 }
 
-#[derive(Debug)]
-pub enum ModelError {
-    ApiError(String),
-    RequestError(String),
-}
-
-impl std::fmt::Display for ModelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ModelError::ApiError(msg) => write!(f, "API error: {}", msg),
-            ModelError::RequestError(msg) => write!(f, "Access error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for ModelError {}
+use crate::error::Result;
+use std::future::Future;
 
 pub trait Model {
     fn send_message(
         &self,
         message: Message,
         message_history: Vec<Message>,
-    ) -> impl Future<Output = Result<Vec<Message>, ModelError>>;
+    ) -> impl Future<Output = Result<Vec<Message>>>;
 }
