@@ -123,16 +123,26 @@ impl<'a, M: Model> Session<'a, M> {
                     .process_tool_calls(tool_calls, debug_mode, on_rejected)
                     .await?;
 
-                let (last_call, last_result) = tool_results.pop()
-                    .ok_or_else(|| SessionError::Processing { reason: "tool call batch processing failed".to_string() })?;
-
-                for (call, result) in &tool_results {
-                    self.message_history.push(call.clone());
+                // extract the last tool call & result pair; safe because tool_calls isn't empty
+                let (last_call, last_result) = tool_results.pop().unwrap(); 
+                // add all other calls & results to the messages history
+                for (call, result) in tool_results {
+                    self.message_history.push(call);
                     self.message_history.push(result.clone());
                 }
-
-                self.message_history.push(last_call.clone());
-                current_message = last_result;
+                self.message_history.push(last_call);
+                // if one of the tools was rejected, turn_finished will now be false, meaning we
+                // are going to pass back control to the user after we have processed all results
+                // this means that we just need to add the last call & result to the message
+                // history
+                if turn_finished {
+                    self.message_history.push(last_result);
+                } else {
+                    // if the turn isn't finished yet, then we need to add the last call to the
+                    // history, but the last result must be set to the current message to continue
+                    // the turn, passing back control to the model
+                    current_message = last_result;
+                }
             }
         }
         Ok(())
