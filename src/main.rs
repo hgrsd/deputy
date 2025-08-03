@@ -1,4 +1,5 @@
 use crate::{
+    error::Result,
     context::{Context, ModelConfig, SessionConfig},
     io::{IO, TerminalIO},
     provider::{Provider, session_factory::SessionFactory},
@@ -42,7 +43,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Create context with all configuration
