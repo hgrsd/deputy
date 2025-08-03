@@ -175,7 +175,7 @@ impl<'a, M: Model> Session<'a, M> {
                     tool.permission_id(arguments.clone())
                 };
 
-                let allow = if self.context.yolo_mode {
+                let allow = if self.context.model_config.yolo_mode {
                     // In yolo mode, always allow tool execution
                     if debug_mode {
                         eprintln!("[DEBUG] YOLO MODE: Auto-allowing tool {} with permission_id {}", tool_name, permission_id);

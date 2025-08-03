@@ -69,10 +69,10 @@ impl<'a> OpenAISessionBuilder<'a> {
 
         let openai_model = OpenAIModel::new(
             api_key,
-            context.model_name.clone(),
-            Some(context.max_tokens),
+            context.model_config.model_name.clone(),
+            Some(context.model_config.max_tokens),
             openai_tools,
-            context.base_url_override.clone()
+            context.model_config.base_url_override.clone()
         );
 
         Ok(Session::new(openai_model, self.tools, io, context))

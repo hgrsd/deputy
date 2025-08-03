@@ -66,11 +66,11 @@ impl<'a> AnthropicSessionBuilder<'a> {
 
         let anthropic_model = AnthropicModel::new(
             api_key,
-            context.model_name.clone(),
-            context.max_tokens,
-            Some(context.system_prompt()),
+            context.model_config.model_name.clone(),
+            context.model_config.max_tokens,
+            Some(context.session_config.to_system_prompt()),
             anthropic_tools,
-            context.base_url_override.clone()
+            context.model_config.base_url_override.clone()
         );
 
         Ok(Session::new(anthropic_model, self.tools, io, context))

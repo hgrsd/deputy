@@ -52,7 +52,7 @@ impl SessionFactory {
         io: &'a mut Box<dyn IO>,
         context: &'a Context,
     ) -> Result<SessionWrapper<'a>> {
-        match context.provider {
+        match context.model_config.provider {
             Provider::Anthropic => {
                 let session = Self::build_anthropic_session(tools, io, context)?;
                 Ok(SessionWrapper::Anthropic(session))

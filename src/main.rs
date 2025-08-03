@@ -1,5 +1,5 @@
 use crate::{
-    context::Context,
+    context::{Context, ModelConfig, SessionConfig},
     io::{IO, TerminalIO},
     provider::{Provider, session_factory::SessionFactory},
     tools::ToolRegistry,
@@ -40,12 +40,14 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // Create context with all configuration
-    let context = Context::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
+    let model_config = ModelConfig::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
+    let session_config = SessionConfig::from_env()?;
+    let context = Context::new(model_config, session_config);
 
     let tools = ToolRegistry::with_default_tools().into_tools();
     let mut io: Box<dyn IO> = Box::new(TerminalIO::new()?);
 
-    if context.yolo_mode {
+    if context.model_config.yolo_mode {
         io.show_message(
             "⚠️  YOLO MODE ENABLED ⚠️",
             "All tool calls will execute automatically without permission prompts.\nThis can be dangerous - use with caution!",
@@ -55,10 +57,10 @@ async fn main() -> anyhow::Result<()> {
     io.show_message(
         &format!(
             "Deputy ready! Using provider: {}, model: {}{}{}",
-            context.provider, 
-            context.model_name,
-            if context.yolo_mode { " (YOLO MODE)" } else { "" },
-            if let Some(ref url) = context.base_url_override { format!("base url: {}", url)} else { String::from("") }
+            context.model_config.provider, 
+            context.model_config.model_name,
+            if context.model_config.yolo_mode { " (YOLO MODE)" } else { "" },
+            if let Some(ref url) = context.model_config.base_url_override { format!("base url: {}", url)} else { String::from("") }
         ),
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );

@@ -3,11 +3,7 @@ use std::path::Path;
 use std::{path::PathBuf, str::FromStr};
 use crate::provider::Provider;
 
-pub struct Context {
-    agent_instructions: Option<String>,
-    cwd: String,
-    initial_file_tree: Option<String>,
-    // Configuration fields
+pub struct ModelConfig {
     pub provider: Provider,
     pub model_name: String,
     pub base_url_override: Option<String>,
@@ -15,65 +11,48 @@ pub struct Context {
     pub max_tokens: u32,
 }
 
-impl Context {
-    fn generate_file_tree(cwd: &Path) -> Option<String> {
-        let mut tree_lines = Vec::new();
+pub struct SessionConfig {
+    agent_instructions: Option<String>,
+    cwd: String,
+    initial_file_tree: Option<String>,
+}
 
-        let walker = WalkBuilder::new(cwd)
-            .max_depth(Some(2))
-            .hidden(false)
-            .git_ignore(true)
-            .git_exclude(true)
-            .git_global(true)
-            .build();
+pub struct Context {
+    pub model_config: ModelConfig,
+    pub session_config: SessionConfig,
+}
 
-        let mut entries: Vec<_> = walker.collect();
-        entries.sort_by(|a, b| match (a.as_ref(), b.as_ref()) {
-            (Ok(a_entry), Ok(b_entry)) => a_entry.path().cmp(b_entry.path()),
-            _ => std::cmp::Ordering::Equal,
-        });
-
-        for result in entries {
-            match result {
-                Ok(entry) => {
-                    if let Ok(relative_path) = entry.path().strip_prefix(cwd) {
-                        if relative_path.as_os_str().is_empty() {
-                            continue;
-                        }
-
-                        let depth = relative_path.components().count() - 1;
-                        let indent = "  ".repeat(depth);
-                        let file_name = relative_path
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy();
-
-                        let marker = if entry.file_type().is_some_and(|ft| ft.is_dir()) {
-                            format!("{}/ (directory)", file_name)
-                        } else {
-                            file_name.to_string()
-                        };
-
-                        tree_lines.push(format!("{}{}", indent, marker));
-                    }
-                }
-                Err(_) => continue,
-            }
-        }
-
-        if tree_lines.is_empty() {
-            None
-        } else {
-            Some(tree_lines.join("\n"))
-        }
-    }
-
+impl ModelConfig {
+    /// Creates a new ModelConfig with the provided settings.
+    /// 
+    /// Validates the provider configuration before creating the config.
+    /// Sets max_tokens to a default value of 5,000.
     pub fn new(provider: Provider, model_name: String, yolo_mode: bool, base_url_override: Option<String>) -> anyhow::Result<Self> {
-        // Validate provider configuration
         if let Err(error) = provider.validate_configuration() {
             return Err(anyhow::anyhow!("Provider configuration error: {}", error));
         }
 
+        Ok(Self {
+            provider,
+            model_name,
+            base_url_override,
+            yolo_mode,
+            max_tokens: 5_000,
+        })
+    }
+}
+
+impl SessionConfig {
+    /// Creates a SessionConfig from the current environment.
+    /// 
+    /// Detects the current working directory, generates an initial file tree,
+    /// and searches for agent instruction files in this priority order:
+    /// 1. `DEPUTY.md` in current directory
+    /// 2. `~/.deputy/DEPUTY.md` 
+    /// 3. `AGENTS.md` in current directory
+    /// 4. `CLAUDE.md` in current directory
+    /// 5. `~/.claude/CLAUDE.md`
+    pub fn from_env() -> anyhow::Result<Self> {
         let cwd = std::env::current_dir()
             .map_err(|e| anyhow::anyhow!("Unable to detect current working directory: {}", e))?;
 
@@ -95,17 +74,29 @@ impl Context {
             agent_instructions: instructions,
             cwd: cwd.to_string_lossy().into_owned(),
             initial_file_tree,
-            provider,
-            model_name,
-            yolo_mode,
-            max_tokens: 5_000, // Default value
-            base_url_override
         })
     }
 
-    pub fn system_prompt(&self) -> String {
+    /// Generates the system prompt based on the session configuration.
+    pub fn to_system_prompt(&self) -> String {
         let mut prompt = String::new();
         prompt.push_str(&format!("
+                # Deputy
+
+
+
+You are an agentic code assistant called deputy.
+
+You will refer to yourself as the user's deputy.
+
+# Tool calling
+
+Use the tools available and your reasoning power to assist the user as best as you can.
+
+- When making tool calls, I'd like you to explain in some detail what you are doing and why, so that the user understands the process. Be clear about the reasons for each tool call (unless it's blindingly obvious).
+- Try to make as few as possible that will allow you to achieve your goals. Many tools might have batch functionality (like reading multiple files in one go); try using those where relevant.
+- You can ask for more than one tool call in a single turn. If you want to read files, list some others, and make an edit to yet another, and maybe run a command too, you can just ask for all of these tool calls to be performed in a single turn. No need to do them one-by-one. The user will decide which ones to allow.
+
 # Creative use of shell commands
 
 **IMPORTANT**: You have access to shell command execution - use this creatively and extensively to gather information efficiently rather than reading entire files into context when unnecessary.
@@ -142,17 +133,6 @@ These are just examples to spark creativity - feel free to use any shell command
 - `jq '.dependencies | keys' package.json` - extract JSON keys
 
 **Think creatively!** Combine commands with pipes, use specialized tools available on the system, adapt commands for the specific language/framework, or invent entirely new approaches. The goal is efficient information gathering - these examples are just a starting point.
-
-## Efficiency principles:
-- Use shell commands to filter and summarize before reading files
-- Prefer targeted searches over reading entire files
-- Use command combinations with pipes for complex queries
-- Extract specific sections rather than reading everything
-- Use commands to validate assumptions before making changes
-
-When you need information about the codebase, default to using shell commands first. Only read files directly when you need to see the actual implementation details or make modifications.
-- `sort file.txt | uniq -c` - count unique lines
-- `jq '.dependencies | keys' package.json` - extract JSON keys
 
 ## Efficiency principles:
 - Use shell commands to filter and summarize before reading files
@@ -214,5 +194,67 @@ Note: This is a snapshot from when Deputy started. The actual file structure may
             ));
         }
         prompt
+    }
+
+    fn generate_file_tree(cwd: &Path) -> Option<String> {
+        let mut tree_lines = Vec::new();
+
+        let walker = WalkBuilder::new(cwd)
+            .max_depth(Some(2))
+            .hidden(false)
+            .git_ignore(true)
+            .git_exclude(true)
+            .git_global(true)
+            .build();
+
+        let mut entries: Vec<_> = walker.collect();
+        entries.sort_by(|a, b| match (a.as_ref(), b.as_ref()) {
+            (Ok(a_entry), Ok(b_entry)) => a_entry.path().cmp(b_entry.path()),
+            _ => std::cmp::Ordering::Equal,
+        });
+
+        for result in entries {
+            match result {
+                Ok(entry) => {
+                    if let Ok(relative_path) = entry.path().strip_prefix(cwd) {
+                        if relative_path.as_os_str().is_empty() {
+                            continue;
+                        }
+
+                        let depth = relative_path.components().count() - 1;
+                        let indent = "  ".repeat(depth);
+                        let file_name = relative_path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+
+                        let marker = if entry.file_type().is_some_and(|ft| ft.is_dir()) {
+                            format!("{}/ (directory)", file_name)
+                        } else {
+                            file_name.to_string()
+                        };
+
+                        tree_lines.push(format!("{}{}", indent, marker));
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
+
+        if tree_lines.is_empty() {
+            None
+        } else {
+            Some(tree_lines.join("\n"))
+        }
+    }
+}
+
+impl Context {
+    /// Creates a new Context from the provided model configuration and session configuration.
+    pub fn new(model_config: ModelConfig, session_config: SessionConfig) -> Self {
+        Self {
+            model_config,
+            session_config,
+        }
     }
 }
