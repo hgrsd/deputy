@@ -177,6 +177,7 @@ impl Model for AnthropicModel {
                 .map_err(|_| ModelError::Request {
                     reason: "invalid response from anthropic: Failed to parse error response".to_string()
                 })?;
+
             return Err(ModelError::Request {
                 reason: format!("provider: anthropic, status: {}, message: {}", status_code, error.error.message)
             }.into());

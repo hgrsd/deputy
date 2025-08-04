@@ -154,118 +154,141 @@ impl<'a, M: Model> Session<'a, M> {
         debug_mode: bool,
         mut on_rejected: impl FnMut(),
     ) -> Result<Vec<(Message, Message)>> {
-        let mut tool_results = Vec::new();
-        let mut user_denied_tool = false;
+        let mut results = Vec::new();
+        let mut batch_cancelled = false;
 
         for tool_call in tool_calls {
-            if let Message::ToolCall {
-                id,
-                tool_name,
-                arguments,
-            } = tool_call.clone()
-            {
-                if user_denied_tool {
-                    tool_results.push((tool_call.clone(), Message::ToolResult {
-                        id,
-                        output: String::from("Tool execution cancelled because the user denied a previous tool call in this batch. Control has been returned to the user to provide guidance on how to proceed."),
-                        is_error: true,
-                    }));
-                    continue;
+            let result = if batch_cancelled {
+                self.create_cancellation_message(&tool_call)
+            } else {
+                match self.handle_tool_call(tool_call.clone(), debug_mode).await? {
+                    Some(result) => result,
+                    None => {
+                        batch_cancelled = true;
+                        on_rejected();
+                        self.create_denial_message(&self.extract_tool_id(&tool_call))
+                    }
                 }
-
-                let permission_id = {
-                    let tool = self
-                        .tools
-                        .get(&tool_name)
-                        .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
-
-                    if debug_mode {
-                        eprintln!(
-                            "[DEBUG] Tool call: {} with arguments: {}",
-                            tool_name, arguments
-                        );
-                    }
-
-                    tool.permission_id(arguments.clone())?
-                };
-
-                let allow = if self.context.model_config.yolo_mode {
-                    // In yolo mode, always allow tool execution
-                    if debug_mode {
-                        eprintln!("[DEBUG] YOLO MODE: Auto-allowing tool {} with permission_id {}", tool_name, permission_id);
-                    }
-                    true
-                } else {
-                    // Use existing permission logic
-                    match self
-                        .tool_permissions
-                        .get(&tool_name)
-                        .unwrap_or(&PermissionMode::Ask)
-                    {
-                        PermissionMode::Ask => {
-                            {
-                                let tool = self.tools.get(&tool_name)
-                                    .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
-                                tool.ask_permission(arguments.clone(), self.io);
-                            }
-                            self.prompt_for_permission(&tool_name, &permission_id)?
-                        }
-                        PermissionMode::ApprovedForId { command_id } => {
-                            if &permission_id == command_id {
-                                true
-                            } else {
-                                {
-                                    let tool = self.tools.get(&tool_name)
-                                        .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
-                                    tool.ask_permission(arguments.clone(), self.io);
-                                }
-                                self.prompt_for_permission(&tool_name, &permission_id)?
-                            }
-                        }
-                    }
-                };
-
-                if !allow {
-                    user_denied_tool = true;
-                    tool_results.push((tool_call.clone(), Message::ToolResult {
-                        id,
-                        output: String::from("The user denied this tool call. Control has been returned to the user to provide guidance on how to proceed differently."),
-                        is_error: true,
-                    }));
-                    on_rejected();
-                } else {
-                    let tool = self
-                        .tools
-                        .get(&tool_name)
-                        .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
-
-                    let result = match tool.call(arguments, self.io).await {
-                        Ok(output) => {
-                            if debug_mode {
-                                eprintln!("[DEBUG] Tool result (success): {}", output);
-                            }
-                            Message::ToolResult {
-                                id,
-                                output,
-                                is_error: false,
-                            }
-                        }
-                        Err(error) => {
-                            if debug_mode {
-                                eprintln!("[DEBUG] Tool result (error): {}", error);
-                            }
-                            Message::ToolResult {
-                                id,
-                                output: error.to_string(),
-                                is_error: true,
-                            }
-                        }
-                    };
-                    tool_results.push((tool_call.clone(), result));
-                }
-            }
+            };
+            
+            results.push((tool_call, result));
         }
 
-        Ok(tool_results)
+        Ok(results)
+    }
+
+    async fn handle_tool_call(
+        &mut self,
+        tool_call: Message,
+        debug_mode: bool,
+    ) -> Result<Option<Message>> {
+        let Message::ToolCall { id, tool_name, arguments } = tool_call else {
+            return Err(SessionError::Processing { reason: "Expected ToolCall".to_string() }.into());
+        };
+        
+        self.log_debug(debug_mode, &format!("Tool call: {} with arguments: {}", tool_name, arguments));
+
+        let permission_id = {
+            let tool = self.tools.get(&tool_name)
+                .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
+            tool.permission_id(arguments.clone())?
+        };
+        
+        if !self.authorize_tool_execution(&tool_name, &permission_id, &arguments, debug_mode)? {
+            return Ok(None);
+        }
+
+        let result = self.execute_tool_call(id.clone().unwrap_or_default(), &tool_name, arguments.clone(), debug_mode).await?;
+        Ok(Some(result))
+    }
+
+    fn authorize_tool_execution(
+        &mut self,
+        tool_name: &str,
+        permission_id: &str,
+        arguments: &serde_json::Value,
+        debug_mode: bool,
+    ) -> Result<bool> {
+        if self.context.model_config.yolo_mode {
+            self.log_debug(debug_mode, &format!("YOLO MODE: Auto-allowing tool {} with permission_id {}", tool_name, permission_id));
+            return Ok(true);
+        }
+
+        let permission_mode = self.tool_permissions.get(tool_name).unwrap_or(&PermissionMode::Ask);
+        
+        let requires_user_prompt = match permission_mode {
+            PermissionMode::Ask => true,
+            PermissionMode::ApprovedForId { command_id } => permission_id != command_id,
+        };
+
+        if requires_user_prompt {
+            {
+                let tool = self.tools.get(tool_name)
+                    .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
+                tool.ask_permission(arguments.clone(), self.io);
+            }
+            self.prompt_for_permission(tool_name, permission_id)
+        } else {
+            Ok(true)
+        }
+    }
+
+    async fn execute_tool_call(
+        &mut self,
+        id: String,
+        tool_name: &str,
+        arguments: serde_json::Value,
+        debug_mode: bool,
+    ) -> Result<Message> {
+        let result = {
+            let tool = self.tools.get(tool_name)
+                .ok_or_else(|| ToolError::NotFound { reason: format!("tool: {}", tool_name) })?;
+            tool.call(arguments, self.io).await
+        };
+        let result = match result {
+            Ok(output) => {
+                self.log_debug(debug_mode, &format!("Tool result (success): {}", output));
+                Message::ToolResult { id: Some(id), output, is_error: false }
+            }
+            Err(error) => {
+                self.log_debug(debug_mode, &format!("Tool result (error): {}", error));
+                Message::ToolResult { id: Some(id), output: error.to_string(), is_error: true }
+            }
+        };
+        Ok(result)
+    }
+
+
+    fn create_cancellation_message(&self, tool_call: &Message) -> Message {
+        let Message::ToolCall { id, .. } = tool_call else {
+            panic!("Expected ToolCall message");
+        };
+        
+        Message::ToolResult {
+            id: id.clone(),
+            output: "Tool execution cancelled because the user denied a previous tool call in this batch. Control has been returned to the user to provide guidance on how to proceed.".to_string(),
+            is_error: true,
+        }
+    }
+
+    fn create_denial_message(&self, id: &str) -> Message {
+        Message::ToolResult {
+            id: Some(id.to_string()),
+            output: "The user denied this tool call. Control has been returned to the user to provide guidance on how to proceed differently.".to_string(),
+            is_error: true,
+        }
+    }
+
+    fn extract_tool_id(&self, tool_call: &Message) -> String {
+        match tool_call {
+            Message::ToolCall { id, .. } => id.clone().unwrap_or_default(),
+            _ => panic!("Expected ToolCall message"),
+        }
+    }
+
+    fn log_debug(&self, debug_mode: bool, message: &str) {
+        if debug_mode {
+            eprintln!("[DEBUG] {}", message);
+        }
     }
 }
