@@ -46,7 +46,8 @@ deputy --yolo                              # Skip permission prompts
 deputy --base-url http://localhost:8080/v1 # Custom API endpoint
 deputy --config ./my-config.md             # Use custom configuration file
 # ollama, you need to set OPENAI_API_KEY to some fake value (not an empty string)
-deputy --provider open-ai --base-url http://localhost:11434/v1 --model gpt-oss:20b  
+deputy --provider open-ai --base-url http://localhost:11434/v1 --model gpt-oss:20b
+deputy --provider ollama  # this respenct the OLLAMA_HOST env var, doen't need OPENAI_API_KEY set
 ```
 
 ## Permissions
