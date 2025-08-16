@@ -19,9 +19,7 @@ impl SessionFactory {
         io: &'a mut Box<dyn IO>,
         context: &'a Context,
     ) -> Result<Session<'a, AnthropicModel>> {
-        let mut builder = AnthropicSessionBuilder::new()
-            .context(context)
-            .io(io);
+        let mut builder = AnthropicSessionBuilder::new().context(context).io(io);
 
         for tool in tools {
             builder = builder.tool(tool);
@@ -34,16 +32,15 @@ impl SessionFactory {
         tools: Vec<Box<dyn Tool>>,
         io: &'a mut Box<dyn IO>,
         context: &'a Context,
+        api_key: String,
     ) -> Result<Session<'a, OpenAIModel>> {
-        let mut builder = OpenAISessionBuilder::new()
-            .context(context)
-            .io(io);
+        let mut builder = OpenAISessionBuilder::new().context(context).io(io);
 
         for tool in tools {
             builder = builder.tool(tool);
         }
 
-        Ok(builder.build()?)
+        Ok(builder.build(api_key)?)
     }
 
     pub fn build_session<'a>(
@@ -57,7 +54,12 @@ impl SessionFactory {
                 Ok(SessionWrapper::Anthropic(session))
             }
             Provider::OpenAI => {
-                let session = Self::build_openai_session(tools, io, context)?;
+                let api_key = std::env::var("OPENAI_API_KEY")?;
+                let session = Self::build_openai_session(tools, io, context, api_key)?;
+                Ok(SessionWrapper::OpenAI(session))
+            }
+            Provider::Ollama => {
+                let session = Self::build_openai_session(tools, io, context, "".to_string())?;
                 Ok(SessionWrapper::OpenAI(session))
             }
         }

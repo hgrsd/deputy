@@ -9,13 +9,15 @@ use crate::error::{ConfigError, Result};
 pub enum Provider {
     Anthropic,
     OpenAI,
+    Ollama,
 }
 
 impl std::fmt::Display for Provider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Provider::Anthropic => write!(f, "anthropic"),
-            Provider::OpenAI => write!(f, "openai"),
+            Provider::OpenAI => write!(f, "open-ai"),
+            Provider::Ollama => write!(f, "ollama"),
         }
     }
 }
@@ -25,6 +27,7 @@ impl Provider {
         match self {
             Provider::Anthropic => vec!["ANTHROPIC_API_KEY"],
             Provider::OpenAI => vec!["OPENAI_API_KEY"],
+            Provider::Ollama => vec![],
         }
     }
 

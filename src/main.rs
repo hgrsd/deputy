@@ -6,7 +6,7 @@ use crate::{
     tools::ToolRegistry,
 };
 use clap::Parser;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 mod context;
 mod core;
@@ -21,7 +21,7 @@ mod tools;
 #[command(about = "An agentic CLI assistant")]
 #[command(version)]
 struct Args {
-    /// Provider to use (anthropic or open-ai)
+    /// Provider to use (anthropic or open-ai or ollama)
     #[arg(short, long, value_enum, default_value_t = Provider::Anthropic)]
     provider: Provider,
 
@@ -30,7 +30,8 @@ struct Args {
         short,
         long,
         default_value = "claude-sonnet-4-20250514",
-        default_value_if("provider", "open-ai", "gpt-4o")
+        default_value_if("provider", "open-ai", "gpt-4o"),
+        default_value_if("provider", "ollama", "gpt-oss:20b")
     )]
     model: String,
 
@@ -47,13 +48,31 @@ struct Args {
     config: Option<PathBuf>,
 }
 
+impl Args {
+    fn resolved_base_url(&self) -> Option<String> {
+        match self.provider {
+            Provider::Ollama => {
+                if let Some(url) = &self.base_url {
+                    Some(url.to_string())
+                } else {
+                    Some(format!(
+                        "http://{}/v1",
+                        env::var("OLLAMA_HOST").unwrap_or_else(|_| "localhost:11434".to_string())
+                    ))
+                }
+            }
+            _ => self.base_url.clone(),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    let base_url = args.resolved_base_url();
 
     // Create context with all configuration
-    let model_config =
-        ModelConfig::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
+    let model_config = ModelConfig::new(args.provider.clone(), args.model, args.yolo, base_url)?;
     let session_config = SessionConfig::from_env(args.config)?;
     let context = Context::new(model_config, session_config);
 

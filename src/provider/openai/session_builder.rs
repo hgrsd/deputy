@@ -40,14 +40,11 @@ impl<'a> OpenAISessionBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> Result<Session<'a, OpenAIModel>> {
+    pub fn build(self, api_key: String) -> Result<Session<'a, OpenAIModel>> {
         let context = self
             .context
             .ok_or_else(|| SessionError::Processing { reason: "Context is required".to_string() })?;
         let io = self.io.ok_or_else(|| SessionError::Processing { reason: "IO is required".to_string() })?;
-
-        // Get API key from environment
-        let api_key = std::env::var("OPENAI_API_KEY")?;
 
         let openai_tools = if self.tools.is_empty() {
             None
