@@ -1,6 +1,6 @@
 use crate::{
-    error::Result,
     context::{Context, ModelConfig, SessionConfig},
+    error::Result,
     io::{IO, TerminalIO},
     provider::{Provider, session_factory::SessionFactory},
     tools::ToolRegistry,
@@ -21,12 +21,17 @@ mod tools;
 #[command(about = "An agentic CLI assistant")]
 #[command(version)]
 struct Args {
-    /// Provider to use (anthropic or openai)
+    /// Provider to use (anthropic or open-ai)
     #[arg(short, long, value_enum, default_value_t = Provider::Anthropic)]
     provider: Provider,
 
     /// Model to use (provider-specific, e.g. claude-sonnet-4-20250514 for Anthropic, gpt-4o for OpenAI)
-    #[arg(short, long, default_value = "claude-sonnet-4-20250514")]
+    #[arg(
+        short,
+        long,
+        default_value = "claude-sonnet-4-20250514",
+        default_value_if("provider", "open-ai", "gpt-4o")
+    )]
     model: String,
 
     /// Enable yolo mode - run all tool calls without asking for permission (dangerous!)
@@ -39,7 +44,7 @@ struct Args {
 
     /// Custom configuration file path (when provided, only this file will be read instead of the default priority order)
     #[arg(short, long)]
-    config: Option<PathBuf>
+    config: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -47,7 +52,8 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Create context with all configuration
-    let model_config = ModelConfig::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
+    let model_config =
+        ModelConfig::new(args.provider.clone(), args.model, args.yolo, args.base_url)?;
     let session_config = SessionConfig::from_env(args.config)?;
     let context = Context::new(model_config, session_config);
 
@@ -64,10 +70,18 @@ async fn main() -> Result<()> {
     io.show_message(
         &format!(
             "Deputy ready! Using provider: {}, model: {}{}{}",
-            context.model_config.provider, 
+            context.model_config.provider,
             context.model_config.model_name,
-            if context.model_config.yolo_mode { " (YOLO MODE)" } else { "" },
-            if let Some(ref url) = context.model_config.base_url_override { format!("base url: {}", url)} else { String::from("") }
+            if context.model_config.yolo_mode {
+                " (YOLO MODE)"
+            } else {
+                ""
+            },
+            if let Some(ref url) = context.model_config.base_url_override {
+                format!(", base url: {}", url)
+            } else {
+                String::from("")
+            }
         ),
         "Type your commands below. Type 'exit' to exit (or use Ctrl-C).",
     );
