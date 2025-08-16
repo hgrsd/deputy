@@ -4,7 +4,9 @@ use crate::{
     error::Result,
     io::IO,
     provider::{
-        anthropic::{anthropic_model::AnthropicModel, session_builder::AnthropicSessionBuilder}, openai::{openai_model::OpenAIModel, session_builder::OpenAISessionBuilder}, Provider
+        Provider,
+        anthropic::{anthropic_model::AnthropicModel, session_builder::AnthropicSessionBuilder},
+        openai::{openai_model::OpenAIModel, session_builder::OpenAISessionBuilder},
     },
     session::Session,
 };
